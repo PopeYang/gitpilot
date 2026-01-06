@@ -54,6 +54,7 @@ public:
     bool pushBranch(const QString& branchName, bool setUpstream = false);
     bool pullLatest();
     bool fetch();
+    bool checkMergeConflict(const QString& targetBranch, QString& conflictInfo);  // 检查合并冲突
     
     // 远程仓库信息
     QString getRemoteUrl();

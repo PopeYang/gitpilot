@@ -257,6 +257,48 @@ bool GitService::fetch() {
     return executeGitCommand({"fetch"}, output, error);
 }
 
+bool GitService::checkMergeConflict(const QString& targetBranch, QString& conflictInfo) {
+    emit operationStarted(QString("check-conflict with %1").arg(targetBranch));
+    
+    // 首先fetch最新代码
+    if (!fetch()) {
+        conflictInfo = QString::fromUtf8("获取远程分支失败");
+        emit operationFinished("check-conflict", false);
+        return false;
+    }
+    
+    // 尝试合并但不提交
+    QString output, error;
+    QStringList args = {"merge", "--no-commit", "--no-ff", QString("origin/%1").arg(targetBranch)};
+    bool success = executeGitCommand(args, output, error);
+    
+    if (!success) {
+        // 检查是否有冲突
+        if (error.contains("CONFLICT") || output.contains("CONFLICT")) {
+            conflictInfo = QString::fromUtf8("检测到合并冲突：\n\n") + output + "\n" + error;
+            
+            // 中止合并
+            QString abortOutput, abortError;
+            executeGitCommand({"merge", "--abort"}, abortOutput, abortError);
+            
+            emit operationFinished("check-conflict", false);
+            return false;
+        } else {
+            conflictInfo = QString::fromUtf8("合并失败：") + error;
+            emit operationFinished("check-conflict", false);
+            return false;
+        }
+    }
+    
+    // 合并成功，中止合并（不实际提交）
+    QString abortOutput, abortError;
+    executeGitCommand({"merge", "--abort"}, abortOutput, abortError);
+    
+    conflictInfo = QString::fromUtf8("✅ 没有冲突，可以安全合并");
+    emit operationFinished("check-conflict", true);
+    return true;
+}
+
 QString GitService::getRemoteUrl() {
     return executeGitCommandSimple({"remote", "get-url", "origin"});
 }

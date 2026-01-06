@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_refreshTimer(new QTimer(this))
 {
     setWindowTitle("Easy Git");
-    resize(1000, 700);
+    resize(600, 700);
     
     setupUi();
     createMenuBar();

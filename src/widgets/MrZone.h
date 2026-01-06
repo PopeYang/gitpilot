@@ -29,8 +29,10 @@ public:
     
 signals:
     void mrSubmitted(const QString& targetBranch, const QString& title, const QString& description);
+    void conflictCheckRequested(const QString& targetBranch);
     
 private slots:
+    void onCheckConflictClicked();
     void onSubmitClicked();
     
 private:
@@ -44,6 +46,7 @@ private:
     QComboBox* m_targetBranchCombo;
     QLineEdit* m_titleEdit;
     QTextEdit* m_descriptionEdit;
+    QPushButton* m_checkConflictButton;
     QPushButton* m_submitButton;
     QLabel* m_statusLabel;
     

@@ -95,6 +95,7 @@ void FeatureBranchView::connectSignals() {
     connect(m_stageAllButton, &QPushButton::clicked, this, &FeatureBranchView::onStageAllClicked);
     connect(m_commitButton, &QPushButton::clicked, this, &FeatureBranchView::onCommitClicked);
     connect(m_pushButton, &QPushButton::clicked, this, &FeatureBranchView::onPushClicked);
+    connect(m_mrZone, &MrZone::conflictCheckRequested, this, &FeatureBranchView::onConflictCheckRequested);
     connect(m_mrZone, &MrZone::mrSubmitted, this, &FeatureBranchView::onMrSubmitted);
 }
 
@@ -205,21 +206,55 @@ void FeatureBranchView::onPushClicked() {
     }
 }
 
-void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString& title, const QString& description) {
-    // TODO: 实现完整的自动化工作流
-    // 1. 检查本地状态
-    // 2. 暂存并提交
-    // 3. 推送到远程
-    // 4. 创建MR
-    // 5. 触发Pipeline
-    // 6. 监控构建
-    // 7. 获取下载链接
+void FeatureBranchView::onConflictCheckRequested(const QString& targetBranch) {
+    QString conflictInfo;
+    bool hasNoConflict = m_gitService->checkMergeConflict(targetBranch, conflictInfo);
     
-    QMessageBox::information(this, QString::fromUtf8("开发中"),
-        QString::fromUtf8("MR创建功能开发中...\n\n"
-                         "将要创建：\n"
-                         "标题: %1\n"
-                         "目标: %2\n"
-                         "描述: %3\n\n"
-                         "提示：请先使用上方按钮完成提交和推送").arg(title, targetBranch, description));
+    if (hasNoConflict) {
+        QMessageBox::information(this, QString::fromUtf8("检查结果"),
+            conflictInfo + QString::fromUtf8("\n\n可以继续发起MR。"));
+    } else {
+        QMessageBox::warning(this, QString::fromUtf8("检查结果"), conflictInfo);
+    }
+}
+
+void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString& title, const QString& description) {
+    QString sourceBranch = m_gitService->getCurrentBranch();
+    
+    // 创建MR参数
+    MrParams params;
+    params.sourceBranch = sourceBranch;
+    params.targetBranch = targetBranch;
+    params.title = title;
+    params.description = description;
+    params.removeSourceBranch = false;
+    params.squash = false;
+    
+    // 连接API信号（一次性连接）
+    connect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, 
+        [this](const MrResponse& mr) {
+            QString message = QString::fromUtf8(
+                "✅ MR创建成功！\n\n"
+                "MR #%1: %2\n"
+                "URL: %3\n"
+                "状态: %4"
+            ).arg(mr.iid).arg(mr.title, mr.webUrl, mr.state);
+            
+            QMessageBox::information(this, QString::fromUtf8("成功"), message);
+            disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
+            disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
+        });
+    
+    connect(m_gitLabApi, &GitLabApi::apiError, this,
+        [this](const QString& endpoint, const QString& errorMessage) {
+            QMessageBox::warning(this, QString::fromUtf8("失败"),
+                QString::fromUtf8("创建MR失败：\n\n%1\n\n请检查：\n"
+                                 "1. GitLab Token权限\n"
+                                 "2. 项目ID是否正确\n"
+                                 "3. 网络连接").arg(errorMessage));
+            disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
+            disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
+        });
+    
+    m_gitLabApi->createMergeRequest(params);
 }

@@ -294,6 +294,7 @@ MrResponse GitLabApi::parseMergeRequest(const QJsonObject& json) {
     MrResponse mr;
     mr.id = json["id"].toInt();
     mr.iid = json["iid"].toInt();
+    mr.title = json["title"].toString();
     mr.webUrl = json["web_url"].toString();
     mr.state = json["state"].toString();
     mr.createdAt = json["created_at"].toString();

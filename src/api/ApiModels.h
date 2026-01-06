@@ -27,6 +27,7 @@ struct MrParams {
 struct MrResponse {
     int id;                     // MR ID
     int iid;                    // 项目内的MR编号
+    QString title;              // MR标题
     QString webUrl;             // MR网页链接
     QString state;              // 状态: opened/merged/closed
     QString createdAt;

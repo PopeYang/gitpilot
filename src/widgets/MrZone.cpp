@@ -55,8 +55,36 @@ void MrZone::setupUi() {
     
     groupLayout->addLayout(formLayout);
     
-    // 提交按钮 - 只负责发起MR
-    m_submitButton = new QPushButton(QString::fromUtf8("📤 发起MR"), this);
+    // 按钮区域 - 两个按钮
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    
+    // 检查冲突按钮
+    m_checkConflictButton = new QPushButton(QString::fromUtf8("🔍 检查冲突"), this);
+    m_checkConflictButton->setMinimumHeight(40);
+    m_checkConflictButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #2196F3;"
+        "   color: white;"
+        "   font-size: 13px;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "   border-radius: 5px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #0b7dda;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #0a6bc5;"
+        "}"
+        "QPushButton:disabled {"
+        "   background-color: #cccccc;"
+        "   color: #666666;"
+        "}"
+    );
+    connect(m_checkConflictButton, &QPushButton::clicked, this, &MrZone::onCheckConflictClicked);
+    
+    // 发起合并按钮
+    m_submitButton = new QPushButton(QString::fromUtf8("📤 发起合并"), this);
     m_submitButton->setMinimumHeight(40);
     m_submitButton->setStyleSheet(
         "QPushButton {"
@@ -79,7 +107,10 @@ void MrZone::setupUi() {
         "}"
     );
     connect(m_submitButton, &QPushButton::clicked, this, &MrZone::onSubmitClicked);
-    groupLayout->addWidget(m_submitButton);
+    
+    buttonLayout->addWidget(m_checkConflictButton);
+    buttonLayout->addWidget(m_submitButton);
+    groupLayout->addLayout(buttonLayout);
     
     // 状态标签
     m_statusLabel = new QLabel(this);
@@ -125,6 +156,26 @@ void MrZone::unlockTargetBranch() {
     m_targetBranchCombo->setEnabled(true);
     m_targetBranchCombo->setStyleSheet("");
     m_isLocked = false;
+}
+
+void MrZone::onCheckConflictClicked() {
+    QString targetBranch = m_targetBranchCombo->currentText();
+    
+    // 确认对话框
+    int ret = QMessageBox::question(this, QString::fromUtf8("检查冲突"),
+        QString::fromUtf8("将执行以下操作：\n\n"
+                         "1. fetch远程%1分支\n"
+                         "2. 尝试合并到当前分支（不提交）\n"
+                         "3. 检测是否有冲突\n\n"
+                         "确认继续？").arg(targetBranch),
+        QMessageBox::Yes | QMessageBox::No);
+    
+    if (ret != QMessageBox::Yes) {
+        return;
+    }
+    
+    // 发射信号给父组件处理
+    emit conflictCheckRequested(targetBranch);
 }
 
 void MrZone::onSubmitClicked() {

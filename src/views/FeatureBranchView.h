@@ -24,6 +24,7 @@ private slots:
     void onStageAllClicked();
     void onCommitClicked();
     void onPushClicked();
+    void onConflictCheckRequested(const QString& targetBranch);
     void onMrSubmitted(const QString& targetBranch, const QString& title, const QString& description);
     
 private:
