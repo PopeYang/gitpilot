@@ -55,8 +55,8 @@ void MrZone::setupUi() {
     
     groupLayout->addLayout(formLayout);
     
-    // 提交按钮
-    m_submitButton = new QPushButton(QString::fromUtf8("🚀 提交代码并发起MR"), this);
+    // 提交按钮 - 只负责发起MR
+    m_submitButton = new QPushButton(QString::fromUtf8("📤 发起MR"), this);
     m_submitButton->setMinimumHeight(40);
     m_submitButton->setStyleSheet(
         "QPushButton {"
@@ -147,12 +147,13 @@ void MrZone::onSubmitClicked() {
     
     // 确认对话框
     QString confirmMsg = QString::fromUtf8(
-        "即将执行以下操作：\n\n"
-        "1. 提交当前所有修改\n"
-        "2. 推送到远程仓库\n"
-        "3. 创建MR: %1 → %2\n\n"
-        "确认继续？"
-    ).arg(m_currentBranch, targetBranch);
+        "即将创建MR：\n\n"
+        "源分支: %1\n"
+        "目标分支: %2\n"
+        "标题: %3\n\n"
+        "确认继续？\n\n"
+        "💡 提示：请确保代码已提交并推送到远程仓库"
+    ).arg(m_currentBranch, targetBranch, title);
     
     int ret = QMessageBox::question(this, QString::fromUtf8("确认提交"),
         confirmMsg,
