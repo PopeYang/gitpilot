@@ -5,11 +5,33 @@
 
 class GitService;
 class GitLabApi;
+class QPushButton;
+class QLabel;
 
 class ProtectedBranchView : public QWidget {
     Q_OBJECT
 public:
     explicit ProtectedBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent = nullptr);
+    
+signals:
+    void branchChanged();
+    
+private slots:
+    void onPullClicked();
+    void onNewBranchClicked();
+    void onOperationStarted(const QString& operation);
+    void onOperationFinished(const QString& operation, bool success);
+    
+private:
+    void setupUi();
+    void connectSignals();
+    
+    GitService* m_gitService;
+    GitLabApi* m_gitLabApi;
+    
+    QPushButton* m_pullButton;
+    QPushButton* m_newBranchButton;
+    QLabel* m_statusLabel;
 };
 
-#endif
+#endif // PROTECTEDBRANCHVIEW_H

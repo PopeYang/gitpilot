@@ -59,6 +59,10 @@ void MainWindow::setupUi() {
     m_stackedWidget->addWidget(m_featureBranchView);
     m_stackedWidget->addWidget(m_databaseBranchView);
     
+    // 连接分支变化信号
+    connect(m_protectedBranchView, &ProtectedBranchView::branchChanged, 
+            this, &MainWindow::loadCurrentBranch);
+    
     // 状态栏
     m_statusLabel = new QLabel("就绪", this);
     statusBar()->addWidget(m_statusLabel);
