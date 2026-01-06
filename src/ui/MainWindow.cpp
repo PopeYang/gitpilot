@@ -96,18 +96,22 @@ void MainWindow::createMenuBar() {
 }
 
 void MainWindow::connectServices() {
-    // Git服务信号
+    // Git服务信号 - 操作开始时临时显示进度
     connect(m_gitService, &GitService::operationStarted, 
             [this](const QString& op) {
-        m_statusLabel->setText("正在执行: " + op);
+        // 只在某些长时间操作时显示进度，其他操作不干扰状态栏
+        if (op.contains("push") || op.contains("pull") || op.contains("fetch")) {
+            m_statusLabel->setText(QString::fromUtf8("正在执行: %1").arg(op));
+        }
     });
     
     connect(m_gitService, &GitService::operationFinished,
             [this](const QString& op, bool success) {
-        if (success) {
-            m_statusLabel->setText("完成: " + op);
+        // 操作完成后，恢复显示当前分支
+        if (!m_currentBranch.isEmpty()) {
+            m_statusLabel->setText(QString::fromUtf8("当前分支: %1").arg(m_currentBranch));
         } else {
-            m_statusLabel->setText("失败: " + op);
+            m_statusLabel->setText(QString::fromUtf8("就绪"));
         }
     });
     
