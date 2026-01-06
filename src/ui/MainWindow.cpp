@@ -63,9 +63,12 @@ void MainWindow::setupUi() {
     connect(m_protectedBranchView, &ProtectedBranchView::branchChanged, 
             this, &MainWindow::loadCurrentBranch);
     
-    // 状态栏
-    m_statusLabel = new QLabel("就绪", this);
-    statusBar()->addWidget(m_statusLabel);
+    // 状态栏 - 双标签
+    m_operationLabel = new QLabel(QString::fromUtf8("就绪"), this);
+    m_branchLabel = new QLabel("", this);
+    
+    statusBar()->addWidget(m_operationLabel, 1);  // 伸缩
+    statusBar()->addPermanentWidget(m_branchLabel);  // 固定宽度
 }
 
 void MainWindow::createMenuBar() {
@@ -96,23 +99,16 @@ void MainWindow::createMenuBar() {
 }
 
 void MainWindow::connectServices() {
-    // Git服务信号 - 操作开始时临时显示进度
+    // Git服务信号 - 操作开始时显示进度
     connect(m_gitService, &GitService::operationStarted, 
             [this](const QString& op) {
-        // 只在某些长时间操作时显示进度，其他操作不干扰状态栏
-        if (op.contains("push") || op.contains("pull") || op.contains("fetch")) {
-            m_statusLabel->setText(QString::fromUtf8("正在执行: %1").arg(op));
-        }
+        m_operationLabel->setText(QString::fromUtf8("正在执行: %1").arg(op));
     });
     
     connect(m_gitService, &GitService::operationFinished,
             [this](const QString& op, bool success) {
-        // 操作完成后，恢复显示当前分支
-        if (!m_currentBranch.isEmpty()) {
-            m_statusLabel->setText(QString::fromUtf8("当前分支: %1").arg(m_currentBranch));
-        } else {
-            m_statusLabel->setText(QString::fromUtf8("就绪"));
-        }
+        // 操作完成后，恢复显示就绪
+        m_operationLabel->setText(QString::fromUtf8("就绪"));
     });
     
     // 定时刷新
@@ -162,7 +158,7 @@ void MainWindow::switchToAppropriateView(const QString& branchName) {
         setWindowTitle(QString("Git客户端 - 🟢 %1 (开发中)").arg(branchName));
     }
     
-    m_statusLabel->setText(QString("当前分支: %1").arg(branchName));
+    m_branchLabel->setText(QString::fromUtf8("🌿 %1").arg(branchName));
 }
 
 void MainWindow::onBranchChanged() {

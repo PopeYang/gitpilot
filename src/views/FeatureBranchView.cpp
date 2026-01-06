@@ -233,25 +233,77 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
     // 连接API信号（一次性连接）
     connect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, 
         [this](const MrResponse& mr) {
-            QString message = QString::fromUtf8(
-                "✅ MR创建成功！\n\n"
-                "MR #%1: %2\n"
-                "URL: %3\n"
-                "状态: %4"
-            ).arg(mr.iid).arg(mr.title, mr.webUrl, mr.state);
+            // 创建富文本消息
+            QString message = QString(
+                "<h3 style='color: green;'>✅ MR创建成功！</h3>"
+                "<p><b>MR #%1:</b> %2</p>"
+                "<p><b>状态:</b> %3</p>"
+                "<p><b>跳转链接:</b><br>"
+                "<a href='%4'>%4</a></p>"
+                "<p style='color: #666; font-size: 11px;'>💡 点击链接在浏览器中查看MR详情</p>"
+            ).arg(mr.iid).arg(mr.title, mr.state, mr.webUrl);
             
-            QMessageBox::information(this, QString::fromUtf8("成功"), message);
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(QString::fromUtf8("🎉 MR创建成功"));
+            msgBox.setTextFormat(Qt::RichText);
+            msgBox.setText(message);
+            msgBox.setIcon(QMessageBox::Information);
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setDefaultButton(QMessageBox::Ok);
+            
+            // 让链接可以打开
+            msgBox.setTextInteractionFlags(Qt::TextBrowserInteraction);
+            
+            msgBox.exec();
+            
             disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
             disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
         });
     
     connect(m_gitLabApi, &GitLabApi::apiError, this,
         [this](const QString& endpoint, const QString& errorMessage) {
-            QMessageBox::warning(this, QString::fromUtf8("失败"),
-                QString::fromUtf8("创建MR失败：\n\n%1\n\n请检查：\n"
-                                 "1. GitLab Token权限\n"
-                                 "2. 项目ID是否正确\n"
-                                 "3. 网络连接").arg(errorMessage));
+            QString userMessage;
+            
+            // 检查是否是409冲突错误
+            if (errorMessage.contains("409")) {
+                userMessage = QString::fromUtf8(
+                    "⚠️ MR已存在\n\n"
+                    "该分支的MR可能已经创建过了。\n\n"
+                    "请前往GitLab检查是否已有相同的MR：\n"
+                    "源分支 → 目标分支\n\n"
+                    "详细错误：\n%1"
+                ).arg(errorMessage);
+            } else if (errorMessage.contains("401") || errorMessage.contains("403")) {
+                userMessage = QString::fromUtf8(
+                    "🔒 权限错误\n\n"
+                    "GitLab Token可能无效或权限不足。\n\n"
+                    "请检查：\n"
+                    "1. Token是否已过期\n"
+                    "2. Token是否有api和write_repository权限\n"
+                    "3. 是否有项目的开发者权限\n\n"
+                    "详细错误：\n%1"
+                ).arg(errorMessage);
+            } else if (errorMessage.contains("404")) {
+                userMessage = QString::fromUtf8(
+                    "❓ 未找到资源\n\n"
+                    "项目ID可能不正确，或分支不存在。\n\n"
+                    "请检查：\n"
+                    "1. 设置中的项目ID是否正确\n"
+                    "2. 代码是否已推送到远程\n\n"
+                    "详细错误：\n%1"
+                ).arg(errorMessage);
+            } else {
+                userMessage = QString::fromUtf8(
+                    "❌ 创建MR失败\n\n"
+                    "%1\n\n"
+                    "请检查：\n"
+                    "1. GitLab Token权限\n"
+                    "2. 项目ID是否正确\n"
+                    "3. 网络连接"
+                ).arg(errorMessage);
+            }
+            
+            QMessageBox::warning(this, QString::fromUtf8("失败"), userMessage);
             disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
             disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
         });

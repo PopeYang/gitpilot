@@ -59,6 +59,12 @@ void GitLabApi::createMergeRequest(const MrParams& params) {
     LOG_INFO(QString("API调用: 创建MR %1 -> %2")
              .arg(params.sourceBranch, params.targetBranch));
     
+    if (m_projectId.isEmpty()) {
+        LOG_ERROR("项目ID未设置，无法创建MR");
+        emit apiError("createMergeRequest", QString::fromUtf8("项目ID未设置"));
+        return;
+    }
+    
     QJsonObject json;
     json["source_branch"] = params.sourceBranch;
     json["target_branch"] = params.targetBranch;
@@ -70,6 +76,8 @@ void GitLabApi::createMergeRequest(const MrParams& params) {
     
     json["remove_source_branch"] = params.removeSourceBranch;
     json["squash"] = params.squash;
+    
+    LOG_INFO(QString("MR JSON: %1").arg(QString(QJsonDocument(json).toJson())));
     
     QString endpoint = QString("/api/v4/projects/%1/merge_requests").arg(m_projectId);
     sendPostRequest(endpoint, json, "createMergeRequest");
@@ -166,7 +174,26 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
     
     if (reply->error() != QNetworkReply::NoError) {
         QString errorMsg = reply->errorString();
-        LOG_ERROR(QString("API错误 [%1]: %2").arg(callbackId, errorMsg));
+        QString detailedError = QString("API Error [%1]: %2\nHTTP Status: %3")
+            .arg(callbackId)
+            .arg(errorMsg)
+            .arg(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
+        
+        LOG_ERROR(detailedError);
+        
+        // 读取响应体以获取更详细的错误信息
+        QByteArray responseData = reply->readAll();
+        if (!responseData.isEmpty()) {
+            QJsonDocument doc = QJsonDocument::fromJson(responseData);
+            if (!doc.isNull() && doc.isObject()) {
+                QJsonObject obj = doc.object();
+                if (obj.contains("message")) {
+                    detailedError += "\nGitLab Message: " + obj["message"].toString();
+                }
+            }
+        }
+        
+        emit apiError(callbackId, detailedError);
         emit networkError(errorMsg);
         reply->deleteLater();
         return;

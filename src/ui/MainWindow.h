@@ -43,7 +43,8 @@ private:
     
     // UI组件
     QStackedWidget* m_stackedWidget;
-    QLabel* m_statusLabel;
+    QLabel* m_operationLabel;  // 操作进度标签（左侧）
+    QLabel* m_branchLabel;      // 分支名称标签（右侧）
     
     // 视图组件
     MainBranchView* m_mainBranchView;
