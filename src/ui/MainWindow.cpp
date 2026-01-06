@@ -87,8 +87,7 @@ void MainWindow::createMenuBar() {
     connect(aboutAction, &QAction::triggered, [this]() {
         QMessageBox::about(this, "关于", 
             "Git客户端 v1.0\n\n"
-            "GitLab Workflow Automation Tool\n"
-            "防呆式GitLab工作流工具");
+            "GitLab Workflow Automation Tool");
     });
 }
 
