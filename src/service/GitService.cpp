@@ -126,6 +126,47 @@ QStringList GitService::getModifiedFiles() {
     return files;
 }
 
+QList<FileStatus> GitService::getFileStatus() {
+    QList<FileStatus> statusList;
+    
+    // 使用 git status --porcelain 获取详细状态
+    QString output = executeGitCommandSimple({"status", "--porcelain"});
+    
+    QStringList lines = output.split('\n', Qt::SkipEmptyParts);
+    for (const QString& line : lines) {
+        if (line.length() < 4) continue;
+        
+        FileStatus status;
+        QString statusCode = line.left(2);  // 前两个字符是状态码
+        status.filename = line.mid(3);       // 文件名从第4个字符开始
+        
+        // 解析状态码
+        if (statusCode.contains('M')) {
+            status.status = "M";
+            status.displayText = QString::fromUtf8("📝 ") + status.filename + QString::fromUtf8(" (修改)");
+        } else if (statusCode.contains('A')) {
+            status.status = "A";
+            status.displayText = QString::fromUtf8("➕ ") + status.filename + QString::fromUtf8(" (新增)");
+        } else if (statusCode.contains('D')) {
+            status.status = "D";
+            status.displayText = QString::fromUtf8("➖ ") + status.filename + QString::fromUtf8(" (删除)");
+        } else if (statusCode.contains('?')) {
+            status.status = "??";
+            status.displayText = QString::fromUtf8("❓ ") + status.filename + QString::fromUtf8(" (未跟踪)");
+        } else if (statusCode.contains('R')) {
+            status.status = "R";
+            status.displayText = QString::fromUtf8("🔄 ") + status.filename + QString::fromUtf8(" (重命名)");
+        } else {
+            status.status = statusCode.trimmed();
+            status.displayText = statusCode + " " + status.filename;
+        }
+        
+        statusList.append(status);
+    }
+    
+    return statusList;
+}
+
 // ========== 提交操作 ==========
 
 bool GitService::stageAll() {

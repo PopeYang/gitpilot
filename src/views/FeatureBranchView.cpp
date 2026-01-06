@@ -45,16 +45,17 @@ void FeatureBranchView::setupUi() {
     QVBoxLayout* filesLayout = new QVBoxLayout(filesGroup);
     
     m_filesListWidget = new QListWidget(this);
-    m_filesListWidget->setMaximumHeight(150);
+    m_filesListWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_filesListWidget->setMaximumHeight(200);
     filesLayout->addWidget(m_filesListWidget);
     
-    // 按钮区域 - 水平布局
-    QHBoxLayout* filesButtonLayout = new QHBoxLayout();
+    // 按钮区域 - 简化布局
+    QHBoxLayout* buttonsLayout = new QHBoxLayout();
     
-    m_refreshButton = new QPushButton(QString::fromUtf8("🔄 刷新"), this);
-    m_stageAllButton = new QPushButton(QString::fromUtf8("✅ 暂存所有"), this);
-    m_commitButton = new QPushButton(QString::fromUtf8("💾 提交"), this);
-    m_pushButton = new QPushButton(QString::fromUtf8("⬆️ 推送"), this);
+    m_refreshButton = new QPushButton(QString::fromUtf8("🔄 刷新状态"), this);
+    m_stageAllButton = new QPushButton(QString::fromUtf8("✅ 暂存全部"), this);
+    m_commitButton = new QPushButton(QString::fromUtf8("💾 本地提交"), this);
+    m_pushButton = new QPushButton(QString::fromUtf8("⬆️ 推送远端"), this);
     
     // 设置按钮样式
     m_commitButton->setStyleSheet(
@@ -69,12 +70,13 @@ void FeatureBranchView::setupUi() {
         "QPushButton:disabled { background-color: #cccccc; color: #666666; }"
     );
     
-    filesButtonLayout->addWidget(m_refreshButton);
-    filesButtonLayout->addWidget(m_stageAllButton);
-    filesButtonLayout->addWidget(m_commitButton);
-    filesButtonLayout->addWidget(m_pushButton);
-    filesButtonLayout->addStretch();
-    filesLayout->addLayout(filesButtonLayout);
+    buttonsLayout->addWidget(m_refreshButton);
+    buttonsLayout->addWidget(m_stageAllButton);
+    buttonsLayout->addWidget(m_commitButton);
+    buttonsLayout->addWidget(m_pushButton);
+    buttonsLayout->addStretch();
+    
+    filesLayout->addLayout(buttonsLayout);
     
     mainLayout->addWidget(filesGroup);
     
@@ -106,14 +108,16 @@ void FeatureBranchView::showEvent(QShowEvent* event) {
 void FeatureBranchView::updateFileList() {
     m_filesListWidget->clear();
     
-    QStringList modifiedFiles = m_gitService->getModifiedFiles();
+    QList<FileStatus> fileStatuses = m_gitService->getFileStatus();
     
-    if (modifiedFiles.isEmpty()) {
+    if (fileStatuses.isEmpty()) {
         m_filesListWidget->addItem(QString::fromUtf8("✓ 没有待提交的修改"));
         m_stageAllButton->setEnabled(false);
     } else {
-        for (const QString& file : modifiedFiles) {
-            m_filesListWidget->addItem(file);
+        for (const FileStatus& status : fileStatuses) {
+            QListWidgetItem* item = new QListWidgetItem(status.displayText);
+            item->setData(Qt::UserRole, status.filename);  // 存储原始文件名
+            m_filesListWidget->addItem(item);
         }
         m_stageAllButton->setEnabled(true);
     }
@@ -126,7 +130,7 @@ void FeatureBranchView::updateMrZone() {
 
 void FeatureBranchView::onRefreshClicked() {
     updateFileList();
-    QMessageBox::information(this, QString::fromUtf8("刷新"), 
+    QMessageBox::information(this, QString::fromUtf8("刷新状态"), 
         QString::fromUtf8("已刷新文件列表"));
 }
 

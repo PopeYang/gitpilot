@@ -4,6 +4,16 @@
 #include <QString>
 #include <QStringList>
 #include <QObject>
+#include <QPair>
+
+/**
+ * @brief 文件状态结构
+ */
+struct FileStatus {
+    QString filename;
+    QString status;  // "M"=Modified, "A"=Added, "D"=Deleted, "??"=Untracked
+    QString displayText;
+};
 
 /**
  * @brief Git操作服务层
@@ -31,6 +41,7 @@ public:
     bool hasUncommittedChanges();
     bool hasUnpushedCommits();
     QStringList getModifiedFiles();
+    QList<FileStatus> getFileStatus();  // 新增：获取详细文件状态
     
     // 提交操作
     bool stageAll();
