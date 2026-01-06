@@ -35,6 +35,7 @@ set(SOURCES
     src/views/DatabaseBranchView.cpp
     src/widgets/MrZone.cpp
     src/widgets/DownloadLinkWidget.cpp
+    src/widgets/BranchCreatorDialog.cpp
     src/automation/WorkflowEngine.cpp
     src/automation/BuildMonitor.cpp
     src/config/ConfigManager.cpp
@@ -55,6 +56,7 @@ set(HEADERS
     src/views/DatabaseBranchView.h
     src/widgets/MrZone.h
     src/widgets/DownloadLinkWidget.h
+    src/widgets/BranchCreatorDialog.h
     src/automation/WorkflowEngine.h
     src/automation/BuildMonitor.h
     src/config/ConfigManager.h

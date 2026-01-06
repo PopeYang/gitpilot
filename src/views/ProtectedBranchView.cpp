@@ -1,6 +1,7 @@
 #include "ProtectedBranchView.h"
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
+#include "widgets/BranchCreatorDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -71,8 +72,8 @@ void ProtectedBranchView::setupUi() {
     );
     actionsLayout->addWidget(m_pullButton);
     
-    // 切出新分支按钮
-    m_newBranchButton = new QPushButton(QString::fromUtf8("➕ 切出新分支"), this);
+    // 新建分支按钮
+    m_newBranchButton = new QPushButton(QString::fromUtf8("➕ 新建分支"), this);
     m_newBranchButton->setMinimumHeight(50);
     m_newBranchButton->setStyleSheet(
         "QPushButton {"
@@ -134,53 +135,48 @@ void ProtectedBranchView::onPullClicked() {
 }
 
 void ProtectedBranchView::onNewBranchClicked() {
-    // 获取当前分支作为基础分支
     QString baseBranch = m_gitService->getCurrentBranch();
     
-    // 生成建议的分支名: feature/username-YYYYMMDD
-    QString userName = qgetenv("USERNAME");  // Windows环境变量
-    if (userName.isEmpty()) {
-        userName = "user";
-    }
-    QString dateStr = QDateTime::currentDateTime().toString("yyyyMMdd");
-    QString suggestedName = QString("feature/%1-%2").arg(userName.toLower(), dateStr);
-    
-    // 弹出输入对话框
-    bool ok;
-    QString newBranchName = QInputDialog::getText(
-        this,
-        QString::fromUtf8("创建新分支"),
-        QString::fromUtf8("请输入新分支名称：\n\n建议格式：feature/功能名称 或 hotfix/问题描述"),
-        QLineEdit::Normal,
-        suggestedName,
-        &ok
-    );
-    
-    if (!ok || newBranchName.trimmed().isEmpty()) {
+    BranchCreatorDialog dialog(baseBranch, this);
+    if (dialog.exec() != QDialog::Accepted) {
         return;
     }
     
-    newBranchName = newBranchName.trimmed();
-    
-    // 创建并切换到新分支
+    QString branchName = dialog.getBranchName();
     m_newBranchButton->setEnabled(false);
-    m_statusLabel->setText(QString::fromUtf8("正在创建分支..."));
     
-    bool success = m_gitService->createBranch(newBranchName, baseBranch);
+    bool success = false;
+    
+    if (dialog.getSelectedType() == BranchCreatorDialog::Database) {
+        // 数据库分支：直接checkout
+        m_statusLabel->setText(QString::fromUtf8("正在切换到数据库分支..."));
+        success = m_gitService->switchBranch("develop-database");
+        
+        if (success) {
+            QMessageBox::information(this, QString::fromUtf8("成功"),
+                QString::fromUtf8("已切换到 develop-database 分支\n\n"
+                                 "此分支用于数据库变更，只能向develop合并。"));
+        }
+    } else {
+        // 其他类型：创建新分支
+        m_statusLabel->setText(QString::fromUtf8("正在创建分支..."));
+        success = m_gitService->createBranch(branchName, baseBranch);
+        
+        if (success) {
+            QMessageBox::information(this, QString::fromUtf8("成功"),
+                QString::fromUtf8("已创建并切换到新分支：%1\n\n现在可以开始开发了！").arg(branchName));
+        }
+    }
     
     m_newBranchButton->setEnabled(true);
     
     if (success) {
-        QMessageBox::information(this, QString::fromUtf8("成功"),
-            QString::fromUtf8("已创建并切换到新分支：%1\n\n现在可以开始开发了！").arg(newBranchName));
-        m_statusLabel->setText(QString::fromUtf8("分支创建成功"));
-        
-        // 通知主窗口刷新视图
+        m_statusLabel->setText(QString::fromUtf8("分支操作成功"));
         emit branchChanged();
     } else {
         QMessageBox::warning(this, QString::fromUtf8("失败"),
-            QString::fromUtf8("创建分支失败，可能是分支名已存在或格式不正确。"));
-        m_statusLabel->setText(QString::fromUtf8("分支创建失败"));
+            QString::fromUtf8("分支操作失败，请检查分支名或Git状态。"));
+        m_statusLabel->setText(QString::fromUtf8("分支操作失败"));
     }
 }
 
