@@ -63,6 +63,7 @@ void MainBranchView::setupUi() {
     actionGroup->setStyleSheet("QGroupBox { font-size: 13px; font-weight: bold; padding: 10px; }");
     
     QVBoxLayout* actionLayout = new QVBoxLayout(actionGroup);
+    actionLayout->setSpacing(15);
     
     m_pullButton = new QPushButton(QString::fromUtf8("🔄 拉取最新代码"), this);
     m_pullButton->setMinimumHeight(40);

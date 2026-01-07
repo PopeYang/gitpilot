@@ -69,12 +69,12 @@ void ProtectedBranchView::setupUi() {
     
     // 拉取最新代码按钮
     m_pullButton = new QPushButton(QString::fromUtf8("⬇ 拉取最新代码"), this);
-    m_pullButton->setMinimumHeight(50);
+    m_pullButton->setMinimumHeight(40);
     m_pullButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #4CAF50;"
         "   color: white;"
-        "   font-size: 14px;"
+        "   font-size: 13px;"
         "   font-weight: bold;"
         "   border: none;"
         "   border-radius: 5px;"
@@ -90,12 +90,12 @@ void ProtectedBranchView::setupUi() {
     
     // 新建分支按钮
     m_newBranchButton = new QPushButton(QString::fromUtf8("➕ 新建分支"), this);
-    m_newBranchButton->setMinimumHeight(50);
+    m_newBranchButton->setMinimumHeight(40);
     m_newBranchButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #2196F3;"
         "   color: white;"
-        "   font-size: 14px;"
+        "   font-size: 13px;"
         "   font-weight: bold;"
         "   border: none;"
         "   border-radius: 5px;"
@@ -111,12 +111,12 @@ void ProtectedBranchView::setupUi() {
     
     // 切换分支按钮
     m_switchBranchButton = new QPushButton(QString::fromUtf8("🔀 切换分支"), this);
-    m_switchBranchButton->setMinimumHeight(50);
+    m_switchBranchButton->setMinimumHeight(40);
     m_switchBranchButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #9E9E9E;"
         "   color: white;"
-        "   font-size: 14px;"
+        "   font-size: 13px;"
         "   font-weight: bold;"
         "   border: none;"
         "   border-radius: 5px;"
