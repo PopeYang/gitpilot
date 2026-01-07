@@ -299,6 +299,20 @@ bool GitService::checkMergeConflict(const QString& targetBranch, QString& confli
     return true;
 }
 
+QStringList GitService::getTags(int limit) {
+    // 获取Tags，按版本号倒序排列
+    QString output = executeGitCommandSimple({"tag", "-l", "--sort=-v:refname"});
+    QStringList tags = output.split('\n', Qt::SkipEmptyParts);
+    
+    // 限制返回数量
+    if (limit > 0 && tags.size() > limit) {
+        tags = tags.mid(0, limit);
+    }
+    
+    LOG_INFO(QString("获取到%1个Tags").arg(tags.size()));
+    return tags;
+}
+
 QString GitService::getRemoteUrl() {
     return executeGitCommandSimple({"remote", "get-url", "origin"});
 }

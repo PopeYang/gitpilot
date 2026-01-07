@@ -56,6 +56,9 @@ public:
     bool fetch();
     bool checkMergeConflict(const QString& targetBranch, QString& conflictInfo);  // 检查合并冲突
     
+    // Tags操作
+    QStringList getTags(int limit = 10);  // 获取最近的Tags
+    
     // 远程仓库信息
     QString getRemoteUrl();
     bool hasRemote();
