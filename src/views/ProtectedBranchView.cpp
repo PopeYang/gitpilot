@@ -209,9 +209,43 @@ void ProtectedBranchView::onNewBranchClicked() {
         success = m_gitService->switchBranch("develop-database");
         
         if (success) {
-            QMessageBox::information(this, QString::fromUtf8("成功"),
-                QString::fromUtf8("已切换到 develop-database 分支\n\n"
-                                 "此分支用于数据库变更，只能向develop合并。"));
+            // 切换成功后，自动执行pull
+            m_statusLabel->setText(QString::fromUtf8("正在拉取最新代码..."));
+            
+            QProgressDialog* progress = new QProgressDialog(
+                QString::fromUtf8("✅ 已切换到 develop-database\n正在拉取最新代码..."),
+                QString(), 0, 0, this);
+            progress->setWindowModality(Qt::WindowModal);
+            progress->setMinimumDuration(0);
+            progress->setCancelButton(nullptr);
+            progress->show();
+            
+            // 异步执行pull
+            QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+            QFuture<bool> future = QtConcurrent::run([this]() {
+                return m_gitService->pullLatest();
+            });
+            watcher->setFuture(future);
+            
+            connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress]() {
+                bool pullSuccess = watcher->result();
+                progress->close();
+                progress->deleteLater();
+                watcher->deleteLater();
+                
+                if (pullSuccess) {
+                    QMessageBox::information(this, QString::fromUtf8("成功"),
+                        QString::fromUtf8("已切换到 develop-database 分支并拉取最新代码\n\n"
+                                         "此分支用于数据库变更，只能向develop合并。"));
+                } else {
+                    QMessageBox::warning(this, QString::fromUtf8("拉取失败"),
+                        QString::fromUtf8("已切换到 develop-database，但拉取最新代码失败。\n"
+                                         "请手动执行拉取操作。"));
+                }
+                
+                m_statusLabel->setText(QString::fromUtf8("分支操作完成"));
+                emit branchChanged();
+            });
         }
     } else {
         // 其他类型：创建新分支

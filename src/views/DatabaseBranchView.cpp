@@ -47,7 +47,7 @@ void DatabaseBranchView::setupUi() {
     
     QVBoxLayout* warningLayout = new QVBoxLayout(warningGroup);
     m_warningLabel = new QLabel(
-        QString::fromUtf8("⚠️ 此分支仅用于数据库迁移脚本\n\n"
+        QString::fromUtf8("⚠️ 此分支仅用于数据库版本升级\n\n"
                          "• 仅可合并到 develop 分支\n"
                          "• 建议遵循数据库变更规范\n"
                          "• 提交前检查脚本可回滚性"), 

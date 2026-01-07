@@ -50,6 +50,12 @@ void BranchCreatorDialog::setupUi() {
     typeLayout->addWidget(bugfixRadio);
     typeLayout->addWidget(customRadio);
     
+    // 只有在develop分支上才能创建数据库分支
+    if (m_baseBranch != "develop") {
+        databaseRadio->setEnabled(false);
+        databaseRadio->setToolTip(QString::fromUtf8("只能在 develop 分支上创建/切换到数据库分支"));
+    }
+    
     mainLayout->addWidget(typeGroup);
     
     // Git分支名验证器: 只允许字母、数字、连字符、下划线、斜杠
