@@ -6,6 +6,7 @@
 class QTabWidget;
 class QLineEdit;
 class QPushButton;
+class GitLabApi;  // 前向声明
 
 class SettingsDialog : public QDialog {
     Q_OBJECT
@@ -36,6 +37,9 @@ private:
     // 项目配置
     QLineEdit* m_projectIdEdit;
     QLineEdit* m_projectNameEdit;
+    
+    // 用于测试连接的临时API实例
+    GitLabApi* m_testApi;
 };
 
 #endif // SETTINGSDIALOG_H

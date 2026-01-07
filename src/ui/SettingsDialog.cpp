@@ -1,6 +1,7 @@
 #include "SettingsDialog.h"
 #include "config/ConfigManager.h"
 #include "api/GitLabApi.h"
+#include "api/ApiModels.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -14,14 +15,17 @@
 #include <QMessageBox>
 #include <QFileInfo>
 
-SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
+SettingsDialog::SettingsDialog(QWidget* parent) 
+    : QDialog(parent)
+    , m_testApi(nullptr)
+{
     setupUi();
     loadSettings();
 }
 
 void SettingsDialog::setupUi() {
     setWindowTitle(QString::fromUtf8("设置"));
-    resize(600, 450);
+    resize(500, 400);  // 缩小窗口以匹配主窗口600px宽度
     
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     
@@ -193,13 +197,65 @@ void SettingsDialog::onTestConnection() {
     m_testConnectionBtn->setEnabled(false);
     m_testConnectionBtn->setText(QString::fromUtf8("测试中..."));
     
-    // TODO: 实际调用API测试连接
-    QMessageBox::information(this, QString::fromUtf8("测试连接"),
-        QString::fromUtf8("连接测试功能开发中...\n\n"
-                         "将会调用 GET /api/v4/user 验证Token有效性"));
+    // 清理旧的测试实例
+    if (m_testApi) {
+        m_testApi->deleteLater();
+    }
     
-    m_testConnectionBtn->setEnabled(true);
-    m_testConnectionBtn->setText(QString::fromUtf8("测试连接"));
+    // 创建新的API实例（作为成员变量保持存活）
+    m_testApi = new GitLabApi(this);
+    m_testApi->setBaseUrl(url);
+    m_testApi->setApiToken(token);
+    
+    // 连接成功信号
+    connect(m_testApi, &GitLabApi::userInfoReceived, this,
+        [this](const UserInfo& user) {
+            QString message = QString::fromUtf8(
+                "✅ 连接成功！\n\n"
+                "用户: %1 (@%2)\n"
+                "邮箱: %3\n"
+                "ID: %4"
+            ).arg(user.name, user.username, user.email).arg(user.id);
+            
+            QMessageBox::information(this, QString::fromUtf8("测试成功"), message);
+            m_testConnectionBtn->setEnabled(true);
+            m_testConnectionBtn->setText(QString::fromUtf8("🔍 测试连接"));
+            
+            // 清理
+            m_testApi->deleteLater();
+            m_testApi = nullptr;
+        });
+    
+    // 连接失败信号
+    connect(m_testApi, &GitLabApi::networkError, this,
+        [this](const QString& error) {
+            QMessageBox::warning(this, QString::fromUtf8("连接失败"),
+                QString::fromUtf8("无法连接到GitLab：\n\n%1\n\n请检查：\n"
+                                 "1. 服务器URL是否正确\n"
+                                 "2. Token是否有效\n"
+                                 "3. 网络连接").arg(error));
+            m_testConnectionBtn->setEnabled(true);
+            m_testConnectionBtn->setText(QString::fromUtf8("🔍 测试连接"));
+            
+            // 清理
+            m_testApi->deleteLater();
+            m_testApi = nullptr;
+        });
+    
+    connect(m_testApi, &GitLabApi::apiError, this,
+        [this](const QString& endpoint, const QString& error) {
+            QMessageBox::warning(this, QString::fromUtf8("API错误"),
+                QString::fromUtf8("GitLab API调用失败：\n\n%1").arg(error));
+            m_testConnectionBtn->setEnabled(true);
+            m_testConnectionBtn->setText(QString::fromUtf8("🔍 测试连接"));
+            
+            // 清理
+            m_testApi->deleteLater();
+            m_testApi = nullptr;
+        });
+    
+    // 发起测试请求
+    m_testApi->getCurrentUser();
 }
 
 void SettingsDialog::onSave() {
