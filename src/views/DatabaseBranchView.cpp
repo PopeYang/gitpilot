@@ -30,7 +30,7 @@ void DatabaseBranchView::setupUi() {
     mainLayout->setContentsMargins(20, 20, 20, 20);
     
     // 顶部警告区域
-    QGroupBox* warningGroup = new QGroupBox(QString::fromUtf8("🟣 数据库变更专区"), this);
+    QGroupBox* warningGroup = new QGroupBox(QString::fromUtf8("🟣 数据库版本升级"), this);
     warningGroup->setStyleSheet(
         "QGroupBox {"
         "   background-color: #F3E5F5;"
@@ -49,8 +49,8 @@ void DatabaseBranchView::setupUi() {
     m_warningLabel = new QLabel(
         QString::fromUtf8("⚠️ 此分支仅用于数据库版本升级\n\n"
                          "• 仅可合并到 develop 分支\n"
-                         "• 建议遵循数据库变更规范\n"
-                         "• 提交前检查脚本可回滚性"), 
+                         "• 建议遵循数据库升级规范\n"
+                         "• 提交前检查版本间兼容性"), 
         this);
     m_warningLabel->setStyleSheet("color: #6A1B9A; font-size: 13px; background: transparent; border: none;");
     m_warningLabel->setWordWrap(true);
@@ -134,35 +134,41 @@ void DatabaseBranchView::setupUi() {
     
     QHBoxLayout* commitButtonsLayout = new QHBoxLayout();
     
-    m_commitButton = new QPushButton(QString::fromUtf8("✅ 提交"), this);
-    m_commitButton->setMinimumHeight(40);
+    m_commitButton = new QPushButton(QString::fromUtf8("📝 提交更改"), this);
     m_commitButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #FF9800;"
         "   color: white;"
-        "   font-size: 13px;"
+        "   font-size: 12px;"
         "   font-weight: bold;"
         "   border: none;"
-        "   border-radius: 5px;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
         "}"
         "QPushButton:hover {"
         "   background-color: #F57C00;"
         "}"
+        "QPushButton:pressed {"
+        "   background-color: #E65100;"
+        "}"
     );
     
-    m_pushButton = new QPushButton(QString::fromUtf8("⬆️ 推送"), this);
-    m_pushButton->setMinimumHeight(40);
+    m_pushButton = new QPushButton(QString::fromUtf8("🚀 推送至远程"), this);
     m_pushButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #9C27B0;"
         "   color: white;"
-        "   font-size: 13px;"
+        "   font-size: 12px;"
         "   font-weight: bold;"
         "   border: none;"
-        "   border-radius: 5px;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
         "}"
         "QPushButton:hover {"
         "   background-color: #7B1FA2;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #6A1B9A;"
         "}"
     );
     
