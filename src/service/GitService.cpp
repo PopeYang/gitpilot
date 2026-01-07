@@ -308,6 +308,32 @@ bool GitService::hasRemote() {
     return !output.trimmed().isEmpty();
 }
 
+bool GitService::cloneRepository(const QString& url, const QString& targetPath, QString& error) {
+    QProcess process;
+    process.setWorkingDirectory(QDir::currentPath());
+    
+    QStringList args = {"clone", url, targetPath};
+    process.start("git", args);
+    
+    if (!process.waitForStarted()) {
+        error = QString::fromUtf8("无法启动Git命令");
+        return false;
+    }
+    
+    if (!process.waitForFinished(60000)) {  // 60秒超时
+        error = QString::fromUtf8("Clone操作超时");
+        process.kill();
+        return false;
+    }
+    
+    if (process.exitCode() != 0) {
+        error = QString::fromUtf8(process.readAllStandardError());
+        return false;
+    }
+    
+    return true;
+}
+
 // ========== 私有方法 ==========
 
 bool GitService::executeGitCommand(const QStringList& args, QString& output, QString& error) {

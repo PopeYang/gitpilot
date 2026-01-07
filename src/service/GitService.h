@@ -60,6 +60,9 @@ public:
     QString getRemoteUrl();
     bool hasRemote();
     
+    // 仓库管理（静态方法）
+    static bool cloneRepository(const QString& url, const QString& targetPath, QString& error);
+    
 signals:
     void operationStarted(const QString& operation);
     void operationFinished(const QString& operation, bool success);

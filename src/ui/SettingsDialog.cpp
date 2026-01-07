@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QDir>
 
 SettingsDialog::SettingsDialog(QWidget* parent) 
     : QDialog(parent)
@@ -27,7 +28,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 
 void SettingsDialog::setupUi() {
     setWindowTitle(QString::fromUtf8("设置"));
-    resize(500, 400);  // 缩小窗口以匹配主窗口600px宽度
+    resize(400, 450);  // 缩小窗口以匹配主窗口600px宽度
     
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     
@@ -72,6 +73,29 @@ void SettingsDialog::setupUi() {
     QWidget* repoTab = new QWidget(this);
     QVBoxLayout* repoLayout = new QVBoxLayout(repoTab);
     
+    // 远程仓库URL部分
+    QGroupBox* remoteGroup = new QGroupBox(QString::fromUtf8("远程仓库"), this);
+    QVBoxLayout* remoteLayout = new QVBoxLayout(remoteGroup);
+    
+    QLabel* remoteLabel = new QLabel(QString::fromUtf8("仓库URL (HTTPS):"), this);
+    remoteLayout->addWidget(remoteLabel);
+    
+    m_remoteUrlEdit = new QLineEdit(this);
+    m_remoteUrlEdit->setPlaceholderText("https://gitlab.example.com/namespace/project.git");
+    remoteLayout->addWidget(m_remoteUrlEdit);
+    
+    // Clone按钮
+    m_cloneButton = new QPushButton(QString::fromUtf8("📥 Clone到本地"), this);
+    m_cloneButton->setStyleSheet(
+        "QPushButton { background-color: #2196F3; color: white; padding: 5px 15px; border-radius: 3px; font-weight: bold; }"
+        "QPushButton:hover { background-color: #0b7dda; }"
+        "QPushButton:disabled { background-color: #cccccc; }"
+    );
+    connect(m_cloneButton, &QPushButton::clicked, this, &SettingsDialog::onCloneRepository);
+    remoteLayout->addWidget(m_cloneButton);
+    
+    repoLayout->addWidget(remoteGroup);
+    
     QGroupBox* repoGroup = new QGroupBox(QString::fromUtf8("本地仓库"), this);
     QVBoxLayout* repoGroupLayout = new QVBoxLayout(repoGroup);
     
@@ -90,7 +114,7 @@ void SettingsDialog::setupUi() {
     repoGroupLayout->addLayout(repoPathLayout);
     
     // 自动提取按钮
-    QPushButton* extractBtn = new QPushButton(QString::fromUtf8("� 从 Git 提取项目信息"), this);
+    QPushButton* extractBtn = new QPushButton(QString::fromUtf8("从 Git 提取项目信息"), this);
     extractBtn->setStyleSheet(
         "QPushButton { background-color: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; }"
         "QPushButton:hover { background-color: #45a049; }"
@@ -160,6 +184,73 @@ void SettingsDialog::saveSettings() {
     config.setRepoPath(m_repoPathEdit->text().trimmed());
     config.setCurrentProjectId(m_projectPathEdit->text().trimmed());  // 保存项目路径
     config.setCurrentProjectName(m_projectNameEdit->text().trimmed());
+}
+
+void SettingsDialog::onCloneRepository() {
+    QString url = m_remoteUrlEdit->text().trimmed();
+    
+    if (url.isEmpty()) {
+        QMessageBox::warning(this, QString::fromUtf8("输入错误"),
+            QString::fromUtf8("请先输入远程仓库URL"));
+        return;
+    }
+    
+    // 选择目标目录
+    QString parentDir = QFileDialog::getExistingDirectory(
+        this,
+        QString::fromUtf8("选择Clone目标目录"),
+        QDir::homePath(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+    
+    if (parentDir.isEmpty()) {
+        return;  // 用户取消
+    }
+    
+    // 从URL提取项目名作为文件夹名
+    QRegularExpression regex(R"(/([^/]+?)(?:\.git)?$)");
+    QRegularExpressionMatch match = regex.match(url);
+    QString projectName = match.hasMatch() ? match.captured(1) : "repository";
+    
+    QString targetPath = parentDir + "/" + projectName;
+    
+    // 检查目标目录是否已存在
+    if (QDir(targetPath).exists()) {
+        int ret = QMessageBox::question(this, QString::fromUtf8("目录已存在"),
+            QString::fromUtf8("目录 %1 已存在\n是否仍要继续？").arg(targetPath),
+            QMessageBox::Yes | QMessageBox::No);
+        
+        if (ret != QMessageBox::Yes) {
+            return;
+        }
+    }
+    
+    // 禁用按钮
+    m_cloneButton->setEnabled(false);
+    m_cloneButton->setText(QString::fromUtf8("正在Clone..."));
+    
+    // 执行clone
+    QString error;
+    bool success = GitService::cloneRepository(url, targetPath, error);
+    
+    // 恢复按钮
+    m_cloneButton->setEnabled(true);
+    m_cloneButton->setText(QString::fromUtf8("📥 Clone到本地"));
+    
+    if (success) {
+        // 自动填充仓库路径
+        m_repoPathEdit->setText(targetPath);
+        
+        QMessageBox::information(this, QString::fromUtf8("Clone成功"),
+            QString::fromUtf8("仓库已成功Clone到：\n%1\n\n"
+                             "已自动填充到仓库路径").arg(targetPath));
+        
+        // 自动提取项目信息
+        onExtractFromGit();
+    } else {
+        QMessageBox::warning(this, QString::fromUtf8("Clone失败"),
+            QString::fromUtf8("Clone失败：\n\n%1").arg(error));
+    }
 }
 
 void SettingsDialog::onBrowseRepoPath() {

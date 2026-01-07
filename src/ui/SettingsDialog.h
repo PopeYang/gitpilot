@@ -15,6 +15,7 @@ public:
     explicit SettingsDialog(QWidget* parent = nullptr);
     
 private slots:
+    void onCloneRepository();
     void onBrowseRepoPath();
     void onExtractFromGit();
     void onTestConnection();
@@ -32,6 +33,8 @@ private:
     QPushButton* m_testConnectionBtn;
     
     // 仓库配置
+    QLineEdit* m_remoteUrlEdit;     // 远程URL
+    QPushButton* m_cloneButton;     // Clone按钮
     QLineEdit* m_repoPathEdit;
     QPushButton* m_browseBtn;
     
