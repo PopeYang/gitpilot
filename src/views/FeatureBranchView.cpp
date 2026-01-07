@@ -12,7 +12,13 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QProgressDialog>
+#include <QApplication>
+#include <QTimer>
 #include <QFrame>
+#include <QtConcurrent>
+#include <QFuture>
+#include <QFutureWatcher>
 
 FeatureBranchView::FeatureBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent)
     : QWidget(parent)
@@ -165,30 +171,17 @@ void FeatureBranchView::onCommitClicked() {
         return;
     }
     
-    // 使用进度对话框
-    ProgressDialog* progressDlg = new ProgressDialog(
-        QString::fromUtf8("正在提交更改"),
-        QString("git commit -m \"%1\"").arg(commitMsg),
-        this
-    );
-    
-    bool success = false;
-    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
-        success = result;
-    });
-    
-    progressDlg->executeCommand("git",
-        QStringList() << "commit" << "-m" << commitMsg,
-        m_gitService->getRepoPath());
-    progressDlg->exec();
+    // 静默执行commit，不显示进度对话框
+    bool success = m_gitService->commit(commitMsg);
     
     if (success) {
-        QMessageBox::information(this, QString::fromUtf8("成功"),
-            QString::fromUtf8("代码已提交到本地仓库"));
+        // 成功后刷新列表，不弹窗
         updateFileList();
+    } else {
+        // 只在失败时弹窗
+        QMessageBox::warning(this, QString::fromUtf8("提交失败"),
+            QString::fromUtf8("提交失败，请检查Git状态"));
     }
-    
-    progressDlg->deleteLater();
 }
 
 void FeatureBranchView::onPushClicked() {
@@ -205,41 +198,86 @@ void FeatureBranchView::onPushClicked() {
         return;
     }
     
-    // 使用进度对话框
-    ProgressDialog* progressDlg = new ProgressDialog(
-        QString::fromUtf8("正在推送到远程"),
-        QString("git push origin %1").arg(currentBranch),
-        this
-    );
+    // 显示进度对话框
+    QProgressDialog* progress = new QProgressDialog(
+        QString::fromUtf8("正在推送到远程仓库..."), 
+        QString(), 0, 0, this);
+    progress->setWindowTitle(QString::fromUtf8("推送中"));
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setCancelButton(nullptr);
+    progress->setValue(0);
+    progress->show();
     
-    bool success = false;
-    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
-        success = result;
+    // 使用FutureWatcher监听异步任务
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress]() {
+        bool success = watcher->result();
+        
+        progress->close();
+        progress->deleteLater();
+        watcher->deleteLater();
+        
+        if (success) {
+            QMessageBox::information(this, QString::fromUtf8("推送成功"),
+                QString::fromUtf8("✅ 代码已成功推送到远程仓库"));
+        } else {
+            QMessageBox::warning(this, QString::fromUtf8("推送失败"),
+                QString::fromUtf8("推送失败，请检查网络连接和权限"));
+        }
     });
     
-    progressDlg->executeCommand("git",
-        QStringList() << "push" << "-u" << "origin" << currentBranch,
-        m_gitService->getRepoPath());
-    progressDlg->exec();
+    // 在后台线程执行Git操作
+    QFuture<bool> future = QtConcurrent::run([this, currentBranch]() {
+        return m_gitService->pushBranch(currentBranch, true);
+    });
     
-    if (success) {
-        QMessageBox::information(this, QString::fromUtf8("成功"),
-            QString::fromUtf8("代码已推送到远程仓库"));
-    }
-    
-    progressDlg->deleteLater();
+    watcher->setFuture(future);
 }
 
 void FeatureBranchView::onConflictCheckRequested(const QString& targetBranch) {
-    QString conflictInfo;
-    bool hasNoConflict = m_gitService->checkMergeConflict(targetBranch, conflictInfo);
+    // 显示进度对话框
+    QProgressDialog* progress = new QProgressDialog(
+        QString::fromUtf8("正在检查冲突..."), 
+        QString(), 0, 0, this);
+    progress->setWindowTitle(QString::fromUtf8("检查中"));
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setCancelButton(nullptr);
+    progress->setValue(0);
+    progress->show();
     
-    if (hasNoConflict) {
-        QMessageBox::information(this, QString::fromUtf8("检查结果"),
-            conflictInfo + QString::fromUtf8("\n\n可以继续发起MR。"));
-    } else {
-        QMessageBox::warning(this, QString::fromUtf8("检查结果"), conflictInfo);
-    }
+    // 定义结果类型
+    typedef QPair<bool, QString> CheckResult;
+    QFutureWatcher<CheckResult>* watcher = new QFutureWatcher<CheckResult>(this);
+    
+    connect(watcher, &QFutureWatcher<CheckResult>::finished, this, [this, watcher, progress]() {
+        CheckResult result = watcher->result();
+        bool hasNoConflict = result.first;
+        QString conflictInfo = result.second;
+        
+        progress->close();
+        progress->deleteLater();
+        watcher->deleteLater();
+        
+        if (hasNoConflict) {
+            QMessageBox::information(this, QString::fromUtf8("检查完成"),
+                QString::fromUtf8("✅ ") + conflictInfo + QString::fromUtf8("\n\n可以继续发起合并请求。"));
+        } else {
+            QMessageBox::warning(this, QString::fromUtf8("发现冲突"), conflictInfo);
+        }
+    });
+    
+    // 在后台线程执行Git操作
+    QFuture<CheckResult> future = QtConcurrent::run([this, targetBranch]() {
+        QString info;
+        // 注意：GitService必须是线程安全的，或者checkMergeConflict不应该访问任何GUI元素
+        bool result = m_gitService->checkMergeConflict(targetBranch, info);
+        return qMakePair(result, info);
+    });
+    
+    watcher->setFuture(future);
 }
 
 void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString& title, const QString& description) {
@@ -254,9 +292,25 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
     params.removeSourceBranch = false;
     params.squash = false;
     
+    // 显示等待动画
+    QProgressDialog* progress = new QProgressDialog(
+        QString::fromUtf8("正在创建合并请求..."), 
+        QString(), 0, 0, this);
+    progress->setWindowTitle(QString::fromUtf8("提交中"));
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setCancelButton(nullptr);  // 不可取消
+    progress->setValue(0);
+    progress->show();
+    QApplication::processEvents();  // 立即显示进度条
+    
     // 连接API信号（一次性连接）
     connect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, 
-        [this](const MrResponse& mr) {
+        [this, progress](const MrResponse& mr) {
+            // 关闭进度对话框
+            progress->close();
+            progress->deleteLater();
+            
             // 创建富文本消息
             QString message = QString(
                 "<h3 style='color: green;'>✅ 合并请求创建成功！</h3>"
@@ -286,7 +340,11 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
         });
     
     connect(m_gitLabApi, &GitLabApi::apiError, this,
-        [this](const QString& endpoint, const QString& errorMessage) {
+        [this, progress](const QString& endpoint, const QString& errorMessage) {
+            // 关闭进度对话框
+            progress->close();
+            progress->deleteLater();
+            
             QString userMessage;
             
             // 检查是否是409冲突错误

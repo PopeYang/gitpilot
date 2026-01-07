@@ -8,11 +8,12 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # 查找Qt6组件（支持6.2到6.8+）
-find_package(Qt6 6.2 REQUIRED COMPONENTS 
+find_package(Qt6 REQUIRED COMPONENTS 
     Core 
     Gui 
     Widgets 
     Network
+    Concurrent
 )
 
 # MSVC编译器：设置源文件为UTF-8编码
@@ -74,6 +75,7 @@ target_link_libraries(gitgui PRIVATE
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
+    Qt6::Concurrent
 )
 
 # 设置包含目录
