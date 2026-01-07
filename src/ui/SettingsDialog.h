@@ -16,6 +16,7 @@ public:
     
 private slots:
     void onBrowseRepoPath();
+    void onExtractFromGit();
     void onTestConnection();
     void onSave();
     void onApply();
@@ -35,7 +36,7 @@ private:
     QPushButton* m_browseBtn;
     
     // 项目配置
-    QLineEdit* m_projectIdEdit;
+    QLineEdit* m_projectPathEdit;  // 项目路径而非ID
     QLineEdit* m_projectNameEdit;
     
     // 用于测试连接的临时API实例

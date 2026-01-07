@@ -2,6 +2,7 @@
 #include "config/ConfigManager.h"
 #include "api/GitLabApi.h"
 #include "api/ApiModels.h"
+#include "service/GitService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -14,6 +15,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QFileInfo>
+#include <QRegularExpression>
 
 SettingsDialog::SettingsDialog(QWidget* parent) 
     : QDialog(parent)
@@ -87,10 +89,33 @@ void SettingsDialog::setupUi() {
     repoPathLayout->addWidget(m_browseBtn);
     repoGroupLayout->addLayout(repoPathLayout);
     
+    // 自动提取按钮
+    QPushButton* extractBtn = new QPushButton(QString::fromUtf8("� 从 Git 提取项目信息"), this);
+    extractBtn->setStyleSheet(
+        "QPushButton { background-color: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; }"
+        "QPushButton:hover { background-color: #45a049; }"
+    );
+    connect(extractBtn, &QPushButton::clicked, this, &SettingsDialog::onExtractFromGit);
+    repoGroupLayout->addWidget(extractBtn);
+    
     repoLayout->addWidget(repoGroup);
     
+    // GitLab项目信息
+    QGroupBox* projectGroup = new QGroupBox(QString::fromUtf8("GitLab项目"), this);
+    QFormLayout* projectForm = new QFormLayout(projectGroup);
+    
+    m_projectPathEdit = new QLineEdit(this);
+    m_projectPathEdit->setPlaceholderText("yanghaozhe/test");
+    projectForm->addRow(QString::fromUtf8("项目路径:"), m_projectPathEdit);
+    
+    m_projectNameEdit = new QLineEdit(this);
+    m_projectNameEdit->setPlaceholderText(QString::fromUtf8("我的项目"));
+    projectForm->addRow(QString::fromUtf8("项目名称:"), m_projectNameEdit);
+    
+    repoLayout->addWidget(projectGroup);
+    
     QLabel* repoHint = new QLabel(
-        QString::fromUtf8("💡 选择一个有效的Git仓库目录（包含.git文件夹）"),
+        QString::fromUtf8("💡 点击'从 Git 提取项目信息'自动从远程 URL 获取项目路径"),
         this
     );
     repoHint->setStyleSheet("color: #666; font-size: 11px;");
@@ -98,33 +123,6 @@ void SettingsDialog::setupUi() {
     repoLayout->addStretch();
     
     tabWidget->addTab(repoTab, QString::fromUtf8("仓库"));
-    
-    // ========== 项目配置标签页 ==========
-    QWidget* projectTab = new QWidget(this);
-    QVBoxLayout* projectLayout = new QVBoxLayout(projectTab);
-    
-    QGroupBox* projectGroup = new QGroupBox(QString::fromUtf8("GitLab项目"), this);
-    QFormLayout* projectForm = new QFormLayout(projectGroup);
-    
-    m_projectIdEdit = new QLineEdit(this);
-    m_projectIdEdit->setPlaceholderText("123");
-    projectForm->addRow(QString::fromUtf8("项目ID:"), m_projectIdEdit);
-    
-    m_projectNameEdit = new QLineEdit(this);
-    m_projectNameEdit->setPlaceholderText(QString::fromUtf8("我的项目"));
-    projectForm->addRow(QString::fromUtf8("项目名称:"), m_projectNameEdit);
-    
-    projectLayout->addWidget(projectGroup);
-    
-    QLabel* projectHint = new QLabel(
-        QString::fromUtf8("💡 项目ID可以在GitLab项目页面的URL中找到"),
-        this
-    );
-    projectHint->setStyleSheet("color: #666; font-size: 11px;");
-    projectLayout->addWidget(projectHint);
-    projectLayout->addStretch();
-    
-    tabWidget->addTab(projectTab, QString::fromUtf8("项目"));
     
     mainLayout->addWidget(tabWidget);
     
@@ -150,7 +148,7 @@ void SettingsDialog::loadSettings() {
     m_gitlabUrlEdit->setText(config.getGitLabUrl());
     m_gitlabTokenEdit->setText(config.getGitLabToken());
     m_repoPathEdit->setText(config.getRepoPath());
-    m_projectIdEdit->setText(config.getCurrentProjectId());
+    m_projectPathEdit->setText(config.getCurrentProjectId());  // 现在存储的是项目路径
     m_projectNameEdit->setText(config.getCurrentProjectName());
 }
 
@@ -160,7 +158,7 @@ void SettingsDialog::saveSettings() {
     config.setGitLabUrl(m_gitlabUrlEdit->text().trimmed());
     config.setGitLabToken(m_gitlabTokenEdit->text().trimmed());
     config.setRepoPath(m_repoPathEdit->text().trimmed());
-    config.setCurrentProjectId(m_projectIdEdit->text().trimmed());
+    config.setCurrentProjectId(m_projectPathEdit->text().trimmed());  // 保存项目路径
     config.setCurrentProjectName(m_projectNameEdit->text().trimmed());
 }
 
@@ -181,6 +179,54 @@ void SettingsDialog::onBrowseRepoPath() {
             QMessageBox::warning(this, QString::fromUtf8("无效仓库"),
                 QString::fromUtf8("所选目录不是有效的Git仓库！\n请确保目录包含.git文件夹。"));
         }
+    }
+}
+
+void SettingsDialog::onExtractFromGit() {
+    QString repoPath = m_repoPathEdit->text().trimmed();
+    
+    if (repoPath.isEmpty()) {
+        QMessageBox::warning(this, QString::fromUtf8("错误"),
+            QString::fromUtf8("请先选择仓库路径"));
+        return;
+    }
+    
+    // 使用GitService获取远程URL
+    GitService gitService;
+    gitService.setRepoPath(repoPath);
+    
+    QString remoteUrl = gitService.getRemoteUrl().trimmed();
+    if (remoteUrl.isEmpty()) {
+        QMessageBox::warning(this, QString::fromUtf8("错误"),
+            QString::fromUtf8("无法获取Git远程URL\n请确保仓库已配置远程仓库"));
+        return;
+    }
+    
+    // 解析URL: https://gitlab.example.com/yanghaozhe/test.git
+    QRegularExpression regex(R"(https?://([^/]+)/(.+?)(?:\.git)?$)");
+    QRegularExpressionMatch match = regex.match(remoteUrl);
+    
+    if (match.hasMatch()) {
+        QString server = match.captured(1);
+        QString projectPath = match.captured(2);
+        
+        // 更新项目路径
+        m_projectPathEdit->setText(projectPath);
+        
+        // 从项目路径提取项目名
+        QStringList parts = projectPath.split('/');
+        if (!parts.isEmpty()) {
+            m_projectNameEdit->setText(parts.last());
+        }
+        
+        QMessageBox::information(this, QString::fromUtf8("提取成功"),
+            QString::fromUtf8("已从远程URL提取项目信息：\n\n"
+                             "服务器: %1\n"
+                             "项目路径: %2").arg(server, projectPath));
+    } else {
+        QMessageBox::warning(this, QString::fromUtf8("解析失败"),
+            QString::fromUtf8("无法解析远程URL格式：\n%1\n\n"
+                             "期望格式: https://server/namespace/project.git").arg(remoteUrl));
     }
 }
 
