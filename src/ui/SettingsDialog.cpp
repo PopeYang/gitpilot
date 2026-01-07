@@ -40,6 +40,20 @@ void SettingsDialog::setupUi() {
     QVBoxLayout* gitlabLayout = new QVBoxLayout(gitlabTab);
     
     QGroupBox* gitlabGroup = new QGroupBox(QString::fromUtf8("GitLab服务器"), this);
+    gitlabGroup->setStyleSheet(
+        "QGroupBox {"
+        "   font-size: 13px;"
+        "   font-weight: bold;"
+        "   margin-top: 12px;"
+        "   padding-top: 15px;"
+        "}"
+        "QGroupBox::title {"
+        "   subcontrol-origin: margin;"
+        "   subcontrol-position: top left;"
+        "   padding: 0 5px;"
+        "   margin-top: 0px;"
+        "}"
+    );
     QFormLayout* gitlabForm = new QFormLayout(gitlabGroup);
     
     m_gitlabUrlEdit = new QLineEdit(this);
@@ -76,6 +90,20 @@ void SettingsDialog::setupUi() {
     
     // 远程仓库URL部分
     QGroupBox* remoteGroup = new QGroupBox(QString::fromUtf8("远程仓库"), this);
+    remoteGroup->setStyleSheet(
+        "QGroupBox {"
+        "   font-size: 13px;"
+        "   font-weight: bold;"
+        "   margin-top: 12px;"
+        "   padding-top: 15px;"
+        "}"
+        "QGroupBox::title {"
+        "   subcontrol-origin: margin;"
+        "   subcontrol-position: top left;"
+        "   padding: 0 5px;"
+        "   margin-top: 0px;"
+        "}"
+    );
     QVBoxLayout* remoteLayout = new QVBoxLayout(remoteGroup);
     
     QLabel* remoteLabel = new QLabel(QString::fromUtf8("仓库URL (HTTPS):"), this);
@@ -98,6 +126,20 @@ void SettingsDialog::setupUi() {
     repoLayout->addWidget(remoteGroup);
     
     QGroupBox* repoGroup = new QGroupBox(QString::fromUtf8("本地仓库"), this);
+    repoGroup->setStyleSheet(
+        "QGroupBox {"
+        "   font-size: 13px;"
+        "   font-weight: bold;"
+        "   margin-top: 12px;"
+        "   padding-top: 15px;"
+        "}"
+        "QGroupBox::title {"
+        "   subcontrol-origin: margin;"
+        "   subcontrol-position: top left;"
+        "   padding: 0 5px;"
+        "   margin-top: 0px;"
+        "}"
+    );
     QVBoxLayout* repoGroupLayout = new QVBoxLayout(repoGroup);
     
     QLabel* repoLabel = new QLabel(QString::fromUtf8("仓库路径:"), this);
@@ -127,6 +169,20 @@ void SettingsDialog::setupUi() {
     
     // GitLab项目信息
     QGroupBox* projectGroup = new QGroupBox(QString::fromUtf8("GitLab项目"), this);
+    projectGroup->setStyleSheet(
+        "QGroupBox {"
+        "   font-size: 13px;"
+        "   font-weight: bold;"
+        "   margin-top: 12px;"
+        "   padding-top: 15px;"
+        "}"
+        "QGroupBox::title {"
+        "   subcontrol-origin: margin;"
+        "   subcontrol-position: top left;"
+        "   padding: 0 5px;"
+        "   margin-top: 0px;"
+        "}"
+    );
     QFormLayout* projectForm = new QFormLayout(projectGroup);
     
     m_projectPathEdit = new QLineEdit(this);
