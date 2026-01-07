@@ -1,7 +1,9 @@
 #include "FeatureBranchView.h"
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
+#include "api/ApiModels.h"
 #include "widgets/MrZone.h"
+#include "widgets/ProgressDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -163,16 +165,30 @@ void FeatureBranchView::onCommitClicked() {
         return;
     }
     
-    bool success = m_gitService->commit(commitMsg);
+    // 使用进度对话框
+    ProgressDialog* progressDlg = new ProgressDialog(
+        QString::fromUtf8("正在提交更改"),
+        QString("git commit -m \"%1\"").arg(commitMsg),
+        this
+    );
+    
+    bool success = false;
+    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
+        success = result;
+    });
+    
+    progressDlg->executeCommand("git",
+        QStringList() << "commit" << "-m" << commitMsg,
+        m_gitService->getRepoPath());
+    progressDlg->exec();
     
     if (success) {
         QMessageBox::information(this, QString::fromUtf8("成功"),
             QString::fromUtf8("代码已提交到本地仓库"));
         updateFileList();
-    } else {
-        QMessageBox::warning(this, QString::fromUtf8("失败"),
-            QString::fromUtf8("提交失败，请检查Git状态"));
     }
+    
+    progressDlg->deleteLater();
 }
 
 void FeatureBranchView::onPushClicked() {
@@ -189,21 +205,29 @@ void FeatureBranchView::onPushClicked() {
         return;
     }
     
-    m_pushButton->setEnabled(false);
-    m_pushButton->setText(QString::fromUtf8("推送中..."));
+    // 使用进度对话框
+    ProgressDialog* progressDlg = new ProgressDialog(
+        QString::fromUtf8("正在推送到远程"),
+        QString("git push origin %1").arg(currentBranch),
+        this
+    );
     
-    bool success = m_gitService->pushBranch(currentBranch, true);
+    bool success = false;
+    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
+        success = result;
+    });
     
-    m_pushButton->setEnabled(true);
-    m_pushButton->setText(QString::fromUtf8("⬆️ 推送"));
+    progressDlg->executeCommand("git",
+        QStringList() << "push" << "-u" << "origin" << currentBranch,
+        m_gitService->getRepoPath());
+    progressDlg->exec();
     
     if (success) {
         QMessageBox::information(this, QString::fromUtf8("成功"),
             QString::fromUtf8("代码已推送到远程仓库"));
-    } else {
-        QMessageBox::warning(this, QString::fromUtf8("失败"),
-            QString::fromUtf8("推送失败，请检查网络连接和权限"));
     }
+    
+    progressDlg->deleteLater();
 }
 
 void FeatureBranchView::onConflictCheckRequested(const QString& targetBranch) {
@@ -235,19 +259,20 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
         [this](const MrResponse& mr) {
             // 创建富文本消息
             QString message = QString(
-                "<h3 style='color: green;'>✅ MR创建成功！</h3>"
-                "<p><b>MR #%1:</b> %2</p>"
+                "<h3 style='color: green;'>✅ 合并请求创建成功！</h3>"
+                "<p><b>编号:</b> %1</p>"
+                "<p><b>标题:</b> %2</p>"
                 "<p><b>状态:</b> %3</p>"
-                "<p><b>跳转链接:</b><br>"
+                "<p><b>链接:</b> ⬇️⬇️⬇️ <br>"
                 "<a href='%4'>%4</a></p>"
-                "<p style='color: #666; font-size: 11px;'>💡 点击链接在浏览器中查看MR详情</p>"
+                "<p style='color: #666; font-size: 11px;'>💡 点击链接在浏览器中查看合并请求详情</p>"
             ).arg(mr.iid).arg(mr.title, mr.state, mr.webUrl);
             
             QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QString::fromUtf8("🎉 MR创建成功"));
+            msgBox.setWindowTitle(QString::fromUtf8("合并请求创建成功"));
             msgBox.setTextFormat(Qt::RichText);
             msgBox.setText(message);
-            msgBox.setIcon(QMessageBox::Information);
+            msgBox.setIcon(QMessageBox::NoIcon);  // 不使用默认图标，标题中已有emoji
             msgBox.setStandardButtons(QMessageBox::Ok);
             msgBox.setDefaultButton(QMessageBox::Ok);
             

@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QUrlQuery>
 #include <QDateTime>
+#include <QMessageBox>
 
 GitLabApi::GitLabApi(QObject* parent)
     : QObject(parent)
@@ -79,7 +80,9 @@ void GitLabApi::createMergeRequest(const MrParams& params) {
     
     LOG_INFO(QString("MR JSON: %1").arg(QString(QJsonDocument(json).toJson())));
     
-    QString endpoint = QString("/api/v4/projects/%1/merge_requests").arg(m_projectId);
+    // URL编码项目ID（如果是路径格式 yanghaozhe/test -> yanghaozhe%2Ftest）
+    QString encodedProjectId = QString(QUrl::toPercentEncoding(m_projectId));
+    QString endpoint = QString("/api/v4/projects/%1/merge_requests").arg(encodedProjectId);
     sendPostRequest(endpoint, json, "createMergeRequest");
 }
 
@@ -147,6 +150,11 @@ void GitLabApi::sendPostRequest(const QString& endpoint, const QJsonObject& data
     QNetworkRequest request = createRequest(endpoint);
     QNetworkReply* reply = m_networkManager->post(request, QJsonDocument(data).toJson());
     reply->setProperty("callbackId", callbackId);
+    
+    // 如果是创建MR的请求，设置标记
+    if (callbackId == "createMergeRequest") {
+        reply->setProperty("isCreate", true);
+    }
 }
 
 void GitLabApi::sendPutRequest(const QString& endpoint, const QJsonObject& data, const QString& callbackId) {
@@ -171,8 +179,16 @@ QString GitLabApi::buildApiUrl(const QString& endpoint) {
 
 void GitLabApi::onReplyFinished(QNetworkReply* reply) {
     QString callbackId = reply->property("callbackId").toString();
+    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     
-    if (reply->error() != QNetworkReply::NoError) {
+    LOG_INFO(QString("API响应: %1, HTTP %2").arg(callbackId).arg(statusCode));
+    
+    // 关键修复：即使有网络错误，如果HTTP状态码有效（200-599），也应该处理响应
+    // 因为像409这样的HTTP错误码是有效的业务逻辑错误，不是网络故障
+    bool hasValidHttpStatus = (statusCode >= 200 && statusCode < 600);
+    
+    if (reply->error() != QNetworkReply::NoError && !hasValidHttpStatus) {
+        // 真正的网络错误（连接失败、超时等）
         QString errorMsg = reply->errorString();
         QString detailedError = QString("API Error [%1]: %2\nHTTP Status: %3")
             .arg(callbackId)
@@ -203,6 +219,7 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
     QJsonDocument doc = QJsonDocument::fromJson(responseData);
     
    if (!doc.isNull()) {
+        
         // 根据callbackId分发处理
         if (callbackId == "getCurrentUser") {
             handleUserInfoResponse(doc.object());
@@ -214,10 +231,12 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
             handleProjectResponse(doc.object());
         }
         else if (callbackId == "createMergeRequest") {
-            handleMergeRequestResponse(doc.object());
+            // 提取isCreate属性并传递给handler
+            bool isCreate = reply->property("isCreate").toBool();
+            handleMergeRequestResponse(doc.object(), isCreate);
         }
         else if (callbackId == "getMergeRequest") {
-            handleMergeRequestResponse(doc.object());
+            handleMergeRequestResponse(doc.object(), false);  // 查询操作，不是创建
         }
         else if (callbackId == "listMergeRequests") {
             handleMergeRequestsResponse(doc.array());
@@ -255,13 +274,16 @@ void GitLabApi::handleProjectResponse(const QJsonObject& json) {
     emit projectReceived(project);
 }
 
-void GitLabApi::handleMergeRequestResponse(const QJsonObject& json) {
+void GitLabApi::handleMergeRequestResponse(const QJsonObject& json, bool isCreate) {
     MrResponse mr = parseMergeRequest(json);
     
-    // 根据上下文判断是创建还是查询
-    if (sender()->property("isCreate").toBool()) {
+    LOG_INFO(QString("handleMergeRequestResponse: isCreate=%1, iid=%2").arg(isCreate).arg(mr.iid));
+    
+    if (isCreate) {
+        LOG_INFO("Emitting mergeRequestCreated signal");
         emit mergeRequestCreated(mr);
     } else {
+        LOG_INFO("Emitting mergeRequestReceived signal");
         emit mergeRequestReceived(mr);
     }
 }

@@ -79,7 +79,7 @@ private:
     void handleUserInfoResponse(const QJsonObject& json);
     void handleProjectsResponse(const QJsonArray& jsonArray);
     void handleProjectResponse(const QJsonObject& json);
-    void handleMergeRequestResponse(const QJsonObject& json);
+    void handleMergeRequestResponse(const QJsonObject& json, bool isCreate);
     void handleMergeRequestsResponse(const QJsonArray& jsonArray);
     void handlePipelineResponse(const QJsonObject& json);
     void handlePipelinesResponse(const QJsonArray& jsonArray);

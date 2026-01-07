@@ -2,6 +2,7 @@
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
 #include "widgets/BranchCreatorDialog.h"
+#include "widgets/ProgressDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -116,22 +117,40 @@ void ProtectedBranchView::connectSignals() {
 }
 
 void ProtectedBranchView::onPullClicked() {
-    m_pullButton->setEnabled(false);
-    m_statusLabel->setText(QString::fromUtf8("正在拉取最新代码..."));
+    int ret = QMessageBox::question(this, QString::fromUtf8("确认拉取"),
+        QString::fromUtf8("确定要从远程拉取最新代码吗？\n这将更新当前分支。"),
+        QMessageBox::Yes | QMessageBox::No);
     
-    bool success = m_gitService->pullLatest();
+    if (ret != QMessageBox::Yes) {
+        return;
+    }
     
-    m_pullButton->setEnabled(true);
+    // 使用进度对话框
+    ProgressDialog* progressDlg = new ProgressDialog(
+        QString::fromUtf8("正在拉取最新代码"),
+        QString("git pull"),
+        this
+    );
+    
+    bool success = false;
+    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
+        success = result;
+    });
+    
+    progressDlg->executeCommand("git",
+        QStringList() << "pull",
+        m_gitService->getRepoPath());
+    progressDlg->exec();
     
     if (success) {
-        QMessageBox::information(this, QString::fromUtf8("成功"), 
-            QString::fromUtf8("已成功拉取最新代码！"));
         m_statusLabel->setText(QString::fromUtf8("拉取成功"));
+        QMessageBox::information(this, QString::fromUtf8("成功"),
+            QString::fromUtf8("已成功拉取最新代码！"));
     } else {
-        QMessageBox::warning(this, QString::fromUtf8("失败"),
-            QString::fromUtf8("拉取失败，请检查网络连接或仓库状态。"));
         m_statusLabel->setText(QString::fromUtf8("拉取失败"));
     }
+    
+    progressDlg->deleteLater();
 }
 
 void ProtectedBranchView::onNewBranchClicked() {
