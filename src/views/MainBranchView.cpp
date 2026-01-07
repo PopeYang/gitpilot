@@ -58,37 +58,45 @@ void MainBranchView::setupUi() {
     mainLayout->addWidget(warningGroup);
     
     // Tags列表区域
-    QGroupBox* tagsGroup = new QGroupBox(QString::fromUtf8("📋 最近发布"), this);
-    tagsGroup->setStyleSheet(
+    // 历史活动区域
+    QGroupBox* historyGroup = new QGroupBox(QString::fromUtf8("📜 近期活动"), this);
+    historyGroup->setStyleSheet(
         "QGroupBox {"
         "   font-size: 13px;"
         "   font-weight: bold;"
         "   padding: 10px;"
+        "   margin-top: 10px;"
+        "}"
+        "QGroupBox::title {"
+        "   subcontrol-origin: margin;"
+        "   subcontrol-position: top left;"
+        "   padding: 0 5px;"
         "}"
     );
     
-    QVBoxLayout* tagsLayout = new QVBoxLayout(tagsGroup);
-    m_tagsListWidget = new QListWidget(this);
-    m_tagsListWidget->setMaximumHeight(150);
-    m_tagsListWidget->setAlternatingRowColors(true);
-    m_tagsListWidget->setStyleSheet(
+    QVBoxLayout* historyLayout = new QVBoxLayout(historyGroup);
+    m_historyListWidget = new QListWidget(this);
+    m_historyListWidget->setFocusPolicy(Qt::NoFocus);
+    m_historyListWidget->setStyleSheet(
         "QListWidget {"
-        "   border: 1px solid #ddd;"
-        "   border-radius: 4px;"
-        "   background-color: white;"
+        "   border: 1px solid #ddd;"      // 浅色边框
+        "   background-color: white;"     // 白色背景
+        "   color: #333;"                 // 深色文字
+        "   font-family: 'Consolas', 'Courier New', monospace;" // 保持等宽字体以对齐图形
         "   font-size: 12px;"
+        "   outline: none;"
         "}"
         "QListWidget::item {"
-        "   padding: 5px;"
+        "   padding: 2px 5px;"
+        "   border-bottom: 0px;"
         "}"
-        "QListWidget::item:selected {"
-        "   background-color: #E3F2FD;"
-        "   color: black;"
+        "QListWidget::item:hover {"
+        "   background-color: #F5F5F5;"   // 浅灰色悬停
         "}"
     );
-    tagsLayout->addWidget(m_tagsListWidget);
+    historyLayout->addWidget(m_historyListWidget);
     
-    mainLayout->addWidget(tagsGroup);
+    mainLayout->addWidget(historyGroup);
     
     // 操作按钮区域
     QGroupBox* actionGroup = new QGroupBox(QString::fromUtf8("🔄 操作区"), this);
@@ -169,19 +177,20 @@ void MainBranchView::connectSignals() {
 
 void MainBranchView::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
-    refreshTags();
+    refreshHistory();
 }
 
-void MainBranchView::refreshTags() {
-    m_tagsListWidget->clear();
+void MainBranchView::refreshHistory() {
+    m_historyListWidget->clear();
     
-    QStringList tags = m_gitService->getTags(10);
+    // 获取Git图形化日志
+    QStringList logs = m_gitService->getGraphLog(20);
     
-    if (tags.isEmpty()) {
-        m_tagsListWidget->addItem(QString::fromUtf8("📝 暂无发布标签"));
+    if (logs.isEmpty()) {
+        m_historyListWidget->addItem(QString::fromUtf8("暂无提交记录"));
     } else {
-        for (const QString& tag : tags) {
-            m_tagsListWidget->addItem(QString::fromUtf8("🏷️  ") + tag);
+        for (const QString& log : logs) {
+            m_historyListWidget->addItem(log);
         }
     }
 }
@@ -222,7 +231,7 @@ void MainBranchView::onPullClicked() {
         if (success) {
             QMessageBox::information(this, QString::fromUtf8("拉取成功"),
                 QString::fromUtf8("✅ 已成功拉取最新代码"));
-            refreshTags();  // 刷新Tags列表
+            refreshHistory();  // 刷新历史记录
         } else {
             QMessageBox::warning(this, QString::fromUtf8("拉取失败"),
                 QString::fromUtf8("拉取失败，请检查网络连接"));

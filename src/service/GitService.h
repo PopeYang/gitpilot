@@ -58,6 +58,7 @@ public:
     
     // Tags操作
     QStringList getTags(int limit = 10);  // 获取最近的Tags
+    QStringList getGraphLog(int limit = 20); // 获取图形化日志
     
     // 远程仓库信息
     QString getRemoteUrl();

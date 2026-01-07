@@ -29,7 +29,7 @@ private slots:
     void onPullClicked();
     void onTriggerBuildClicked();
     void onSwitchBranchClicked();
-    void refreshTags();
+    void refreshHistory();
     
 private:
     void setupUi();
@@ -38,7 +38,7 @@ private:
     GitService* m_gitService;
     GitLabApi* m_gitLabApi;
     
-    QListWidget* m_tagsListWidget;
+    QListWidget* m_historyListWidget;
     QPushButton* m_pullButton;
     QPushButton* m_triggerBuildButton;
     QPushButton* m_switchBranchButton;

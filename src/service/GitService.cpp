@@ -313,6 +313,17 @@ QStringList GitService::getTags(int limit) {
     return tags;
 }
 
+QStringList GitService::getGraphLog(int limit) {
+    // git log --graph --oneline --decorate --color=never -n <limit>
+    QStringList args;
+    args << "log" << "--graph" << "--oneline" << "--decorate" << "--color=never" << "-n" << QString::number(limit);
+    
+    QString output = executeGitCommandSimple(args);
+    return output.split('\n', Qt::SkipEmptyParts);
+}
+
+
+
 QString GitService::getRemoteUrl() {
     return executeGitCommandSimple({"remote", "get-url", "origin"});
 }
