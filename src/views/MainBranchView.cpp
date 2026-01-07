@@ -373,11 +373,7 @@ void MainBranchView::onSwitchBranchClicked() {
         watcher->deleteLater();
         
         if (success) {
-            QMessageBox::information(this, QString::fromUtf8("切换成功"),
-                QString::fromUtf8("✅ 已成功切换到分支：%1\n\n"
-                                 "主窗口将自动刷新显示对应的视图。").arg(selectedBranch));
-            
-            // 触发主窗口刷新
+            // 切换成功，直接通知主窗口刷新，不弹窗干扰用户
             emit branchSwitched();
         } else {
             QMessageBox::warning(this, QString::fromUtf8("切换失败"),
