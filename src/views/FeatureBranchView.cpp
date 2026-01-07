@@ -268,7 +268,7 @@ void FeatureBranchView::onConflictCheckRequested(const QString& targetBranch) {
     typedef QPair<bool, QString> CheckResult;
     QFutureWatcher<CheckResult>* watcher = new QFutureWatcher<CheckResult>(this);
     
-    connect(watcher, &QFutureWatcher<CheckResult>::finished, this, [this, watcher, progress]() {
+    connect(watcher, &QFutureWatcher<CheckResult>::finished, this, [this, watcher, progress, targetBranch]() {
         CheckResult result = watcher->result();
         bool hasNoConflict = result.first;
         QString conflictInfo = result.second;
@@ -297,9 +297,16 @@ void FeatureBranchView::onConflictCheckRequested(const QString& targetBranch) {
                 }
             }
         } else {
+            QString helpText = QString::fromUtf8(
+                "\n\n🛠️ 如何解决冲突：\n"
+                "1. 在本地终端运行：\n   git pull origin %1\n"
+                "2. 打开IDE解决冲突文件\n"
+                "3. 提交修改并再次推送"
+            ).arg(targetBranch);
+            
             QMessageBox msgBox(this);
             msgBox.setWindowTitle(QString::fromUtf8("发现冲突"));
-            msgBox.setText(conflictInfo);
+            msgBox.setText(conflictInfo + helpText);
             msgBox.setIcon(QMessageBox::Warning);
             msgBox.setStandardButtons(QMessageBox::Ok);
             msgBox.setMinimumWidth(255);
