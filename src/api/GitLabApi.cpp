@@ -276,7 +276,7 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
             handleMergeRequestsResponse(doc.array());
         }
         else if (callbackId == "triggerPipeline" || callbackId == "getPipelineStatus") {
-            handlePipelineResponse(doc.object());
+            handlePipelineResponse(doc.object(), (callbackId == "triggerPipeline"));
         }
         else if (callbackId == "listPipelines") {
             handlePipelinesResponse(doc.array());
@@ -330,10 +330,10 @@ void GitLabApi::handleMergeRequestsResponse(const QJsonArray& jsonArray) {
     emit mergeRequestsReceived(mrs);
 }
 
-void GitLabApi::handlePipelineResponse(const QJsonObject& json) {
+void GitLabApi::handlePipelineResponse(const QJsonObject& json, bool isTrigger) {
     PipelineStatus pipeline = parsePipeline(json);
     
-    if (sender()->property("isTrigger").toBool()) {
+    if (isTrigger) {
         emit pipelineTriggered(pipeline);
     } else {
         emit pipelineStatusReceived(pipeline);

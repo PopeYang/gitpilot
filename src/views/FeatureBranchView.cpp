@@ -422,9 +422,9 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
     params.removeSourceBranch = false;
     params.squash = false;
     
-    // 显示等待动画，宽度255
+    // 显示等待动画
     QProgressDialog* progress = new QProgressDialog(
-        QString::fromUtf8("正在创建合并请求..."), 
+        QString::fromUtf8("正在推送到远程仓库..."), 
         QString(), 0, 0, this);
     progress->setWindowTitle(QString::fromUtf8("提交中"));
     progress->setMinimumWidth(255);
@@ -433,95 +433,92 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
     progress->setCancelButton(nullptr);  // 不可取消
     progress->setValue(0);
     progress->show();
-    QApplication::processEvents();  // 立即显示进度条
+    QApplication::processEvents();
     
-    // 连接API信号（一次性连接）
-    connect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, 
-        [this, progress](const MrResponse& mr) {
-            // 关闭进度对话框
+    // 异步执行Push操作
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress, params]() {
+        bool pushSuccess = watcher->result();
+        watcher->deleteLater();
+        
+        if (!pushSuccess) {
             progress->close();
             progress->deleteLater();
-            
-            // 创建富文本消息
-            QString message = QString(
-                "<h3 style='color: green;'>✅ 合并请求创建成功！</h3>"
-                "<p><b>编号:</b> %1</p>"
-                "<p><b>标题:</b> %2</p>"
-                "<p><b>状态:</b> %3</p>"
-                "<p><b>链接:</b> ⬇️⬇️⬇️ <br>"
-                "<a href='%4'>%4</a></p>"
-                "<p style='color: #666; font-size: 11px;'>💡 点击链接在浏览器中查看合并请求详情</p>"
-            ).arg(mr.iid).arg(mr.title, mr.state, mr.webUrl);
-            
-            QMessageBox msgBox(this);
-            msgBox.setWindowTitle(QString::fromUtf8("合并请求创建成功"));
-            msgBox.setTextFormat(Qt::RichText);
-            msgBox.setText(message);
-            msgBox.setIcon(QMessageBox::NoIcon);  // 不使用默认图标，标题中已有emoji
-            msgBox.setStandardButtons(QMessageBox::Ok);
-            msgBox.setDefaultButton(QMessageBox::Ok);
-            msgBox.setMinimumWidth(255);
-            
-            // 让链接可以打开
-            msgBox.setTextInteractionFlags(Qt::TextBrowserInteraction);
-            
-            msgBox.exec();
-            
-            disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
-            disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
-        });
+            QMessageBox::warning(this, QString::fromUtf8("推送失败"), 
+                QString::fromUtf8("无法推送到远程仓库，请检查网络连接或权限。"));
+            return;
+        }
+        
+        // Push成功，开始创建MR
+        progress->setLabelText(QString::fromUtf8("正在创建合并请求..."));
+        
+        // 连接API信号（一次性连接）
+        connect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, 
+            [this, progress](const MrResponse& mr) {
+                progress->close();
+                progress->deleteLater();
+                
+                // 创建富文本消息
+                QString message = QString(
+                    "<h3 style='color: green;'>✅ 合并请求创建成功！</h3>"
+                    "<p><b>编号:</b> %1</p>"
+                    "<p><b>标题:</b> %2</p>"
+                    "<p><b>状态:</b> %3</p>"
+                    "<p><b>链接:</b> ⬇️⬇️⬇️ <br>"
+                    "<a href='%4'>%4</a></p>"
+                    "<p style='color: #666; font-size: 11px;'>💡 点击链接在浏览器中查看合并请求详情</p>"
+                ).arg(mr.iid).arg(mr.title, mr.state, mr.webUrl);
+                
+                QMessageBox msgBox(this);
+                msgBox.setWindowTitle(QString::fromUtf8("合并请求创建成功"));
+                msgBox.setTextFormat(Qt::RichText);
+                msgBox.setText(message);
+                msgBox.setIcon(QMessageBox::NoIcon);
+                msgBox.setStandardButtons(QMessageBox::Ok);
+                msgBox.setDefaultButton(QMessageBox::Ok);
+                msgBox.setMinimumWidth(255);
+                msgBox.setTextInteractionFlags(Qt::TextBrowserInteraction);
+                msgBox.exec();
+                
+                // 收到MR后，可选：触发Pipeline
+                // m_gitLabApi->triggerPipeline(mr.source_branch); // 暂时不默认触发，以免滥用
+                
+                disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
+                disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
+            });
+        
+        connect(m_gitLabApi, &GitLabApi::apiError, this,
+            [this, progress](const QString& endpoint, const QString& errorMessage) {
+                progress->close();
+                progress->deleteLater();
+                
+                QString userMessage;
+                
+                if (errorMessage.contains("409")) {
+                    userMessage = QString::fromUtf8("⚠️ MR已存在\n该分支的MR可能已经创建过了。");
+                } else if (errorMessage.contains("401") || errorMessage.contains("403")) {
+                    userMessage = QString::fromUtf8("🔒 权限错误\nToken无效或权限不足。");
+                } else if (errorMessage.contains("404")) {
+                    userMessage = QString::fromUtf8("❓ 未找到资源\n项目ID不正确或远程分支不存在。");
+                } else {
+                    userMessage = QString::fromUtf8("❌ 创建MR失败\n%1").arg(errorMessage);
+                }
+                
+                QMessageBox::warning(this, QString::fromUtf8("失败"), userMessage);
+                disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
+                disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
+            });
+        
+        // 发起API调用
+        m_gitLabApi->createMergeRequest(params);
+    });
     
-    connect(m_gitLabApi, &GitLabApi::apiError, this,
-        [this, progress](const QString& endpoint, const QString& errorMessage) {
-            // 关闭进度对话框
-            progress->close();
-            progress->deleteLater();
-            
-            QString userMessage;
-            
-            // 检查是否是409冲突错误
-            if (errorMessage.contains("409")) {
-                userMessage = QString::fromUtf8(
-                    "⚠️ MR已存在\n\n"
-                    "该分支的MR可能已经创建过了。\n\n"
-                    "请前往GitLab检查是否已有相同的MR：\n"
-                    "源分支 → 目标分支\n\n"
-                    "详细错误：\n%1"
-                ).arg(errorMessage);
-            } else if (errorMessage.contains("401") || errorMessage.contains("403")) {
-                userMessage = QString::fromUtf8(
-                    "🔒 权限错误\n\n"
-                    "GitLab Token可能无效或权限不足。\n\n"
-                    "请检查：\n"
-                    "1. Token是否已过期\n"
-                    "2. Token是否有api和write_repository权限\n"
-                    "3. 是否有项目的开发者权限\n\n"
-                    "详细错误：\n%1"
-                ).arg(errorMessage);
-            } else if (errorMessage.contains("404")) {
-                userMessage = QString::fromUtf8(
-                    "❓ 未找到资源\n\n"
-                    "项目ID可能不正确，或分支不存在。\n\n"
-                    "请检查：\n"
-                    "1. 设置中的项目ID是否正确\n"
-                    "2. 代码是否已推送到远程\n\n"
-                    "详细错误：\n%1"
-                ).arg(errorMessage);
-            } else {
-                userMessage = QString::fromUtf8(
-                    "❌ 创建MR失败\n\n"
-                    "%1\n\n"
-                    "请检查：\n"
-                    "1. GitLab Token权限\n"
-                    "2. 项目ID是否正确\n"
-                    "3. 网络连接"
-                ).arg(errorMessage);
-            }
-            
-            QMessageBox::warning(this, QString::fromUtf8("失败"), userMessage);
-            disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
-            disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
-        });
+    // 开始后台Push
+    QFuture<bool> future = QtConcurrent::run([this, sourceBranch]() {
+        // pushBranch(branch, setUpstream=true)
+        return m_gitService->pushBranch(sourceBranch, true);
+    });
     
-    m_gitLabApi->createMergeRequest(params);
+    watcher->setFuture(future);
 }
