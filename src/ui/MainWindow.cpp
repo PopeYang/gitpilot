@@ -12,6 +12,8 @@
 #include <QStatusBar>
 #include <QVBoxLayout>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QInputDialog>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -70,10 +72,28 @@ void MainWindow::setupUi() {
     
     // 状态栏 - 双标签
     m_operationLabel = new QLabel(QString::fromUtf8("就绪"), this);
-    m_branchLabel = new QLabel("", this);
+    
+    // 右侧分支切换按钮
+    m_branchButton = new QPushButton("", this);
+    m_branchButton->setFlat(true);
+    m_branchButton->setCursor(Qt::PointingHandCursor);
+    m_branchButton->setStyleSheet(
+        "QPushButton { "
+        "   border: none; "
+        "   padding: 0 10px; "
+        "   text-align: right; "
+        "   color: #333; "
+        "   font-weight: bold;"
+        "}"
+        "QPushButton:hover { "
+        "   background-color: #f0f0f0; "
+        "   color: #000; "
+        "}"
+    );
+    connect(m_branchButton, &QPushButton::clicked, this, &MainWindow::onBranchSwitchClicked);
     
     statusBar()->addWidget(m_operationLabel, 1);  // 伸缩
-    statusBar()->addPermanentWidget(m_branchLabel);  // 固定宽度
+    statusBar()->addPermanentWidget(m_branchButton);  // 固定宽度
 }
 
 void MainWindow::createMenuBar() {
@@ -163,7 +183,7 @@ void MainWindow::switchToAppropriateView(const QString& branchName) {
         setWindowTitle(QString("Git客户端 - 🟢 %1 (开发中)").arg(branchName));
     }
     
-    m_branchLabel->setText(QString::fromUtf8("🌿 %1").arg(branchName));
+    m_branchButton->setText(QString::fromUtf8("🌿 %1").arg(branchName));
 }
 
 void MainWindow::onBranchChanged() {
@@ -188,4 +208,70 @@ void MainWindow::onSettingsRequested() {
         
         loadCurrentBranch();
     }
+}
+
+#include <QProgressDialog>
+#include <QtConcurrent>
+#include <QFutureWatcher>
+
+void MainWindow::onBranchSwitchClicked() {
+    QStringList branches = m_gitService->getAllBranches();
+    if (branches.isEmpty()) {
+        QMessageBox::information(this, "提示", "没有可用的本地分支");
+        return;
+    }
+    
+    QString currentBranch = m_gitService->getCurrentBranch();
+    int currentIndex = branches.indexOf(currentBranch);
+    if (currentIndex < 0) currentIndex = 0;
+    
+    // 自定义输入对话框以设置最小宽度
+    QInputDialog dialog(this);
+    dialog.setWindowTitle(QString::fromUtf8("切换分支"));
+    dialog.setLabelText(QString::fromUtf8("选择要切换的分支:"));
+    dialog.setComboBoxItems(branches);
+    dialog.setTextValue(currentBranch);
+    dialog.setMinimumWidth(255);
+    // 同时也设置对话框的窗口标记，确保它是模态的
+    dialog.setWindowModality(Qt::WindowModal);
+    
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    
+    QString targetBranch = dialog.textValue();
+    if (targetBranch.isEmpty() || targetBranch == currentBranch) {
+        return;
+    }
+
+    // 创建进度条对话框
+    QProgressDialog* progress = new QProgressDialog(QString::fromUtf8("正在切换分支到 %1...").arg(targetBranch), QString(), 0, 0, this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0); // 立即显示
+    progress->setCancelButton(nullptr); // 禁止取消
+    progress->show();
+    
+    // 使用 QtConcurrent 在后台线程执行切换操作
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    QFuture<bool> future = QtConcurrent::run([this, targetBranch]() {
+        return m_gitService->switchBranch(targetBranch);
+    });
+    
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress, targetBranch]() {
+        bool success = watcher->result();
+        progress->close();
+        progress->deleteLater();
+        watcher->deleteLater();
+        
+        if (success) {
+            // 切换成功，不显示弹窗，直接刷新界面
+            loadCurrentBranch();
+            // 可选：在状态栏显示短暂的成功消息
+            statusBar()->showMessage(QString::fromUtf8("已切换到分支: %1").arg(targetBranch), 3000);
+        } else {
+            QMessageBox::critical(this, "错误", QString::fromUtf8("切换分支失败\n请检查是否有未提交的更改或冲突"));
+        }
+    });
+    
+    watcher->setFuture(future);
 }

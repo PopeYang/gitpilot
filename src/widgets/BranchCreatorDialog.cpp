@@ -33,7 +33,7 @@ void BranchCreatorDialog::setupUi() {
     
     m_typeGroup = new QButtonGroup(this);
     
-    QRadioButton* databaseRadio = new QRadioButton(QString::fromUtf8("📊 数据库变更"), this);
+    QRadioButton* databaseRadio = new QRadioButton(QString::fromUtf8("📊 数据库升级"), this);
     QRadioButton* featureRadio = new QRadioButton(QString::fromUtf8("✨ 新功能开发"), this);
     QRadioButton* bugfixRadio = new QRadioButton(QString::fromUtf8("🐛 Bug修复"), this);
     QRadioButton* customRadio = new QRadioButton(QString::fromUtf8("📝 其他（自定义）"), this);

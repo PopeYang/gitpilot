@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QStackedWidget>
 #include <QLabel>
+#include <QPushButton>
 #include <QTimer>
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
@@ -29,6 +30,7 @@ private slots:
     void onBranchChanged();
     void onRefreshRequested();
     void onSettingsRequested();
+    void onBranchSwitchClicked();
     
 private:
     void setupUi();
@@ -44,7 +46,7 @@ private:
     // UI组件
     QStackedWidget* m_stackedWidget;
     QLabel* m_operationLabel;  // 操作进度标签（左侧）
-    QLabel* m_branchLabel;      // 分支名称标签（右侧）
+    QPushButton* m_branchButton;      // 分支切换按钮（右侧）
     
     // 视图组件
     MainBranchView* m_mainBranchView;

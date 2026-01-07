@@ -54,7 +54,7 @@ void ProtectedBranchView::setupUi() {
     QLabel* descLabel = new QLabel(
         QString::fromUtf8("⚠️ 当前分支受保护，禁止直接推送\n\n"
                          "• 仅可拉取最新代码\n"
-                         "• 请切出新分支进行开发"),
+                         "• 请新建分支进行新功能的开发"),
         this);
     descLabel->setStyleSheet("color: #2B5278; font-size: 13px; background: transparent; border: none;");
     descLabel->setWordWrap(true);
@@ -205,7 +205,7 @@ void ProtectedBranchView::onNewBranchClicked() {
     
     if (dialog.getSelectedType() == BranchCreatorDialog::Database) {
         // 数据库分支：直接checkout
-        m_statusLabel->setText(QString::fromUtf8("正在切换到数据库分支..."));
+        m_statusLabel->setText(QString::fromUtf8("正在切换到数据库版本升级分支..."));
         success = m_gitService->switchBranch("develop-database");
         
         if (success) {
@@ -236,7 +236,7 @@ void ProtectedBranchView::onNewBranchClicked() {
                 if (pullSuccess) {
                     QMessageBox::information(this, QString::fromUtf8("成功"),
                         QString::fromUtf8("已切换到 develop-database 分支并拉取最新代码\n\n"
-                                         "此分支用于数据库变更，只能向develop合并。"));
+                                         "此分支用于数据库版本升级，只能向develop合并。"));
                 } else {
                     QMessageBox::warning(this, QString::fromUtf8("拉取失败"),
                         QString::fromUtf8("已切换到 develop-database，但拉取最新代码失败。\n"
