@@ -3,6 +3,7 @@
 #include "api/GitLabApi.h"
 #include "api/ApiModels.h"
 #include "service/GitService.h"
+#include "widgets/ProgressDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -225,17 +226,20 @@ void SettingsDialog::onCloneRepository() {
         }
     }
     
-    // 禁用按钮
-    m_cloneButton->setEnabled(false);
-    m_cloneButton->setText(QString::fromUtf8("正在Clone..."));
+    // 使用进度对话框执行clone
+    ProgressDialog* progressDlg = new ProgressDialog(
+        QString::fromUtf8("正在Clone仓库"),
+        QString("git clone %1 %2").arg(url, targetPath),
+        this
+    );
     
-    // 执行clone
-    QString error;
-    bool success = GitService::cloneRepository(url, targetPath, error);
+    bool success = false;
+    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
+        success = result;
+    });
     
-    // 恢复按钮
-    m_cloneButton->setEnabled(true);
-    m_cloneButton->setText(QString::fromUtf8("📥 Clone到本地"));
+    progressDlg->executeCommand("git", QStringList() << "clone" << url << targetPath, parentDir);
+    progressDlg->exec();
     
     if (success) {
         // 自动填充仓库路径
@@ -247,10 +251,9 @@ void SettingsDialog::onCloneRepository() {
         
         // 自动提取项目信息
         onExtractFromGit();
-    } else {
-        QMessageBox::warning(this, QString::fromUtf8("Clone失败"),
-            QString::fromUtf8("Clone失败：\n\n%1").arg(error));
     }
+    
+    progressDlg->deleteLater();
 }
 
 void SettingsDialog::onBrowseRepoPath() {
