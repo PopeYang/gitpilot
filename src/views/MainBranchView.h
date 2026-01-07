@@ -19,9 +19,6 @@ class MainBranchView : public QWidget {
 public:
     explicit MainBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent = nullptr);
     
-protected:
-    void showEvent(QShowEvent* event) override;
-    
 signals:
     void branchSwitched();  // 通知主窗口刷新
     
@@ -29,7 +26,6 @@ private slots:
     void onPullClicked();
     void onTriggerBuildClicked();
     void onSwitchBranchClicked();
-    void refreshHistory();
     
 private:
     void setupUi();
@@ -38,7 +34,6 @@ private:
     GitService* m_gitService;
     GitLabApi* m_gitLabApi;
     
-    QListWidget* m_historyListWidget;
     QPushButton* m_pullButton;
     QPushButton* m_triggerBuildButton;
     QPushButton* m_switchBranchButton;

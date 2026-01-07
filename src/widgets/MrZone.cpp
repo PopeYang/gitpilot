@@ -25,7 +25,7 @@ void MrZone::setupUi() {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     
     // MR提交专区标题
-    QGroupBox* mrGroup = new QGroupBox(QString::fromUtf8("📤 MR提交专区"), this);
+    QGroupBox* mrGroup = new QGroupBox(QString::fromUtf8("📤 创建合并请求"), this);
     QVBoxLayout* groupLayout = new QVBoxLayout(mrGroup);
     
     // 表单布局
@@ -40,7 +40,7 @@ void MrZone::setupUi() {
     // MR标题
     m_titleEdit = new QLineEdit(this);
     m_titleEdit->setPlaceholderText(QString::fromUtf8("例如: feat: 添加用户登录功能"));
-    formLayout->addRow(QString::fromUtf8("MR标题:"), m_titleEdit);
+    formLayout->addRow(QString::fromUtf8("合并标题:"), m_titleEdit);
     
     // MR描述
     m_descriptionEdit = new QTextEdit(this);
@@ -51,7 +51,7 @@ void MrZone::setupUi() {
                          "- 注意事项等")
     );
     m_descriptionEdit->setMaximumHeight(100);
-    formLayout->addRow(QString::fromUtf8("描述:"), m_descriptionEdit);
+    formLayout->addRow(QString::fromUtf8("修改内容:"), m_descriptionEdit);
     
     groupLayout->addLayout(formLayout);
     

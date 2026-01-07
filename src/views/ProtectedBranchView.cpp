@@ -12,6 +12,13 @@
 #include <QInputDialog>
 #include <QDateTime>
 #include <QGroupBox>
+#include <QListWidget>
+#include <QTimer>
+#include <QProgressDialog>
+#include <QtConcurrent>
+#include <QFutureWatcher>
+#include <QListWidget>
+#include <QTimer>
 
 ProtectedBranchView::ProtectedBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent) 
     : QWidget(parent)
@@ -24,31 +31,39 @@ ProtectedBranchView::ProtectedBranchView(GitService* gitService, GitLabApi* gitL
 
 void ProtectedBranchView::setupUi() {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(20);
-    mainLayout->setContentsMargins(30, 30, 30, 30);
+    mainLayout->setSpacing(15);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
     
-    // 标题
-    QLabel* titleLabel = new QLabel(QString::fromUtf8("🔒 保护分支同步模式"), this);
-    QFont titleFont = titleLabel->font();
-    titleFont.setPointSize(16);
-    titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
-    titleLabel->setAlignment(Qt::AlignCenter);
-    mainLayout->addWidget(titleLabel);
-    
-    // 说明文字
-    QLabel* descLabel = new QLabel(
-        QString::fromUtf8("当前分支受保护，禁止直接推送。\n请切出新分支进行开发。"),
-        this
+    // 顶部说明区域
+    QGroupBox* infoGroup = new QGroupBox(QString::fromUtf8("🔒 保护分支开发模式"), this);
+    infoGroup->setStyleSheet(
+        "QGroupBox {"
+        "   background-color: #F0F8FF;"
+        "   border: 2px solid #4A90E2;"
+        "   border-radius: 8px;"
+        "   font-size: 14px;"
+        "   font-weight: bold;"
+        "   padding: 10px;"
+        "}"
+        "QGroupBox::title {"
+        "   color: #2B5278;"
+        "}"
     );
-    descLabel->setAlignment(Qt::AlignCenter);
-    descLabel->setStyleSheet("color: #666; font-size: 12px;");
-    mainLayout->addWidget(descLabel);
     
-    mainLayout->addSpacing(20);
+    QVBoxLayout* infoLayout = new QVBoxLayout(infoGroup);
+    QLabel* descLabel = new QLabel(
+        QString::fromUtf8("⚠️ 当前分支受保护，禁止直接推送\n\n"
+                         "• 仅可拉取最新代码\n"
+                         "• 请切出新分支进行开发"),
+        this);
+    descLabel->setStyleSheet("color: #2B5278; font-size: 13px; background: transparent; border: none;");
+    descLabel->setWordWrap(true);
+    infoLayout->addWidget(descLabel);
+    
+    mainLayout->addWidget(infoGroup);
     
     // 操作按钮组
-    QGroupBox* actionsGroup = new QGroupBox(QString::fromUtf8("快速操作"), this);
+    QGroupBox* actionsGroup = new QGroupBox(QString::fromUtf8("🔄 操作区"), this);
     QVBoxLayout* actionsLayout = new QVBoxLayout(actionsGroup);
     actionsLayout->setSpacing(15);
     
@@ -94,6 +109,27 @@ void ProtectedBranchView::setupUi() {
     );
     actionsLayout->addWidget(m_newBranchButton);
     
+    // 切换分支按钮
+    m_switchBranchButton = new QPushButton(QString::fromUtf8("🔀 切换分支"), this);
+    m_switchBranchButton->setMinimumHeight(50);
+    m_switchBranchButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #9E9E9E;"
+        "   color: white;"
+        "   font-size: 14px;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "   border-radius: 5px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #757575;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #616161;"
+        "}"
+    );
+    actionsLayout->addWidget(m_switchBranchButton);
+    
     mainLayout->addWidget(actionsGroup);
     
     // 状态标签
@@ -111,6 +147,7 @@ void ProtectedBranchView::setupUi() {
 void ProtectedBranchView::connectSignals() {
     connect(m_pullButton, &QPushButton::clicked, this, &ProtectedBranchView::onPullClicked);
     connect(m_newBranchButton, &QPushButton::clicked, this, &ProtectedBranchView::onNewBranchClicked);
+    connect(m_switchBranchButton, &QPushButton::clicked, this, &ProtectedBranchView::onSwitchBranchClicked);
     
     connect(m_gitService, &GitService::operationStarted, this, &ProtectedBranchView::onOperationStarted);
     connect(m_gitService, &GitService::operationFinished, this, &ProtectedBranchView::onOperationFinished);
@@ -209,4 +246,94 @@ void ProtectedBranchView::onOperationFinished(const QString& operation, bool suc
     } else {
         m_statusLabel->setText(QString::fromUtf8("失败: %1").arg(operation));
     }
+}
+
+void ProtectedBranchView::onSwitchBranchClicked() {
+    // 获取所有分支列表
+    QStringList branches = m_gitService->getAllBranches();
+    QString currentBranch = m_gitService->getCurrentBranch();
+    
+    if (branches.isEmpty()) {
+        QMessageBox::warning(this, QString::fromUtf8("无可用分支"),
+            QString::fromUtf8("未找到可切换的分支"));
+        return;
+    }
+    
+    // 从列表中移除当前分支
+    branches.removeAll(currentBranch);
+    
+    if (branches.isEmpty()) {
+        QMessageBox::information(this, QString::fromUtf8("提示"),
+            QString::fromUtf8("没有其他分支可供切换"));
+        return;
+    }
+    
+    // 创建选择对话框
+    bool ok;
+    QString selectedBranch = QInputDialog::getItem(
+        this,
+        QString::fromUtf8("切换分支"),
+        QString::fromUtf8("选择要切换的分支：\n\n当前分支：%1").arg(currentBranch),
+        branches,
+        0,  // 默认选择第一个
+        false,  // 不可编辑
+        &ok
+    );
+    
+    if (!ok || selectedBranch.isEmpty()) {
+        return;
+    }
+    
+    // 设置对话框最小宽度
+    QList<QDialog*> dialogs = findChildren<QDialog*>();
+    if (!dialogs.isEmpty()) {
+        dialogs.last()->setMinimumWidth(255);
+    }
+    
+    // 检查是否有未提交的改动
+    if (m_gitService->hasUncommittedChanges()) {
+        int ret = QMessageBox::warning(this, 
+            QString::fromUtf8("未提交的改动"),
+            QString::fromUtf8("当前存在未提交的改动，切换分支可能会丢失这些改动。\n\n"
+                                 "是否继续切换？"),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+        
+        if (ret != QMessageBox::Yes) {
+            return;
+        }
+    }
+    
+    // 执行切换
+    QProgressDialog* progress = new QProgressDialog(
+        QString::fromUtf8("正在切换分支..."),
+        QString(),
+        0, 0,
+        this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setCancelButton(nullptr);
+    progress->show();
+    
+    QFuture<bool> future = QtConcurrent::run([this, selectedBranch]() {
+        return m_gitService->switchBranch(selectedBranch);
+    });
+    
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    watcher->setFuture(future);
+    
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress, selectedBranch]() {
+        bool success = watcher->result();
+        
+        progress->close();
+        progress->deleteLater();
+        watcher->deleteLater();
+        
+        if (success) {
+            emit branchChanged();
+        } else {
+            QMessageBox::warning(this, QString::fromUtf8("切换失败"),
+                QString::fromUtf8("切换到分支 %1 失败，请检查Git状态。").arg(selectedBranch));
+        }
+    });
 }

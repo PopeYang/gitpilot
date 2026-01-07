@@ -13,6 +13,7 @@
 #include <QApplication>
 #include <QtConcurrent>
 #include <QFutureWatcher>
+#include <QTimer>
 
 MainBranchView::MainBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent)
     : QWidget(parent)
@@ -56,47 +57,6 @@ void MainBranchView::setupUi() {
     warningLayout->addWidget(m_warningLabel);
     
     mainLayout->addWidget(warningGroup);
-    
-    // Tags列表区域
-    // 历史活动区域
-    QGroupBox* historyGroup = new QGroupBox(QString::fromUtf8("📜 近期活动"), this);
-    historyGroup->setStyleSheet(
-        "QGroupBox {"
-        "   font-size: 13px;"
-        "   font-weight: bold;"
-        "   padding: 10px;"
-        "   margin-top: 10px;"
-        "}"
-        "QGroupBox::title {"
-        "   subcontrol-origin: margin;"
-        "   subcontrol-position: top left;"
-        "   padding: 0 5px;"
-        "}"
-    );
-    
-    QVBoxLayout* historyLayout = new QVBoxLayout(historyGroup);
-    m_historyListWidget = new QListWidget(this);
-    m_historyListWidget->setFocusPolicy(Qt::NoFocus);
-    m_historyListWidget->setStyleSheet(
-        "QListWidget {"
-        "   border: 1px solid #ddd;"      // 浅色边框
-        "   background-color: white;"     // 白色背景
-        "   color: #333;"                 // 深色文字
-        "   font-family: 'Consolas', 'Courier New', monospace;" // 保持等宽字体以对齐图形
-        "   font-size: 12px;"
-        "   outline: none;"
-        "}"
-        "QListWidget::item {"
-        "   padding: 2px 5px;"
-        "   border-bottom: 0px;"
-        "}"
-        "QListWidget::item:hover {"
-        "   background-color: #F5F5F5;"   // 浅灰色悬停
-        "}"
-    );
-    historyLayout->addWidget(m_historyListWidget);
-    
-    mainLayout->addWidget(historyGroup);
     
     // 操作按钮区域
     QGroupBox* actionGroup = new QGroupBox(QString::fromUtf8("🔄 操作区"), this);
@@ -175,26 +135,6 @@ void MainBranchView::connectSignals() {
     connect(m_switchBranchButton, &QPushButton::clicked, this, &MainBranchView::onSwitchBranchClicked);
 }
 
-void MainBranchView::showEvent(QShowEvent* event) {
-    QWidget::showEvent(event);
-    refreshHistory();
-}
-
-void MainBranchView::refreshHistory() {
-    m_historyListWidget->clear();
-    
-    // 获取Git图形化日志
-    QStringList logs = m_gitService->getGraphLog(20);
-    
-    if (logs.isEmpty()) {
-        m_historyListWidget->addItem(QString::fromUtf8("暂无提交记录"));
-    } else {
-        for (const QString& log : logs) {
-            m_historyListWidget->addItem(log);
-        }
-    }
-}
-
 void MainBranchView::onPullClicked() {
     int ret = QMessageBox::question(
         this,
@@ -231,7 +171,6 @@ void MainBranchView::onPullClicked() {
         if (success) {
             QMessageBox::information(this, QString::fromUtf8("拉取成功"),
                 QString::fromUtf8("✅ 已成功拉取最新代码"));
-            refreshHistory();  // 刷新历史记录
         } else {
             QMessageBox::warning(this, QString::fromUtf8("拉取失败"),
                 QString::fromUtf8("拉取失败，请检查网络连接"));
@@ -338,6 +277,12 @@ void MainBranchView::onSwitchBranchClicked() {
         false,  // 不可编辑
         &ok
     );
+    
+    // 设置对话框最小宽度
+    QList<QDialog*> dialogs = findChildren<QDialog*>();
+    if (!dialogs.isEmpty()) {
+        dialogs.last()->setMinimumWidth(255);
+    }
     
     if (!ok || selectedBranch.isEmpty()) {
         return;

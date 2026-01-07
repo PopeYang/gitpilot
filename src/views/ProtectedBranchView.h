@@ -7,6 +7,7 @@ class GitService;
 class GitLabApi;
 class QPushButton;
 class QLabel;
+class QListWidget;
 
 class ProtectedBranchView : public QWidget {
     Q_OBJECT
@@ -19,6 +20,7 @@ signals:
 private slots:
     void onPullClicked();
     void onNewBranchClicked();
+    void onSwitchBranchClicked();
     void onOperationStarted(const QString& operation);
     void onOperationFinished(const QString& operation, bool success);
     
@@ -31,6 +33,7 @@ private:
     
     QPushButton* m_pullButton;
     QPushButton* m_newBranchButton;
+    QPushButton* m_switchBranchButton;
     QLabel* m_statusLabel;
 };
 

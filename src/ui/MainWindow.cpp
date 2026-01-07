@@ -33,9 +33,11 @@ MainWindow::MainWindow(QWidget *parent)
     m_gitLabApi->setApiToken(config.getGitLabToken());
     m_gitLabApi->setProjectId(config.getCurrentProjectId());
     
-    // 启动分支监控
-    loadCurrentBranch();
-    m_refreshTimer->start(5000); // 每5秒检查一次分支变化
+    // 延迟启动分支监控，避免阻塞窗口显示
+    QTimer::singleShot(100, this, [this]() {
+        loadCurrentBranch();
+        m_refreshTimer->start(5000); // 每5秒检查一次分支变化
+    });
     
     LOG_INFO("主窗口初始化完成");
 }
