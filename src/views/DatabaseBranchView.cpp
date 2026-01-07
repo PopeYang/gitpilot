@@ -92,31 +92,31 @@ void DatabaseBranchView::setupUi() {
     
     m_refreshButton->setStyleSheet(
         "QPushButton {"
-        "   background-color: #2196F3;"
-        "   color: white;"
+        "   background-color: white;"
+        "   color: #333;"
+        "   border: 1px solid #ccc;"
         "   font-size: 12px;"
         "   font-weight: bold;"
-        "   border: none;"
         "   border-radius: 4px;"
         "   padding: 8px;"
         "}"
         "QPushButton:hover {"
-        "   background-color: #0b7dda;"
+        "   background-color: #f5f5f5;"
         "}"
     );
     
     m_stageAllButton->setStyleSheet(
         "QPushButton {"
-        "   background-color: #4CAF50;"
-        "   color: white;"
+        "   background-color: white;"
+        "   color: #333;"
+        "   border: 1px solid #ccc;"
         "   font-size: 12px;"
         "   font-weight: bold;"
-        "   border: none;"
         "   border-radius: 4px;"
         "   padding: 8px;"
         "}"
         "QPushButton:hover {"
-        "   background-color: #45a049;"
+        "   background-color: #f5f5f5;"
         "}"
     );
     
@@ -137,6 +137,25 @@ void DatabaseBranchView::setupUi() {
     m_commitButton = new QPushButton(QString::fromUtf8("📝 本地提交"), this);
     m_commitButton->setStyleSheet(
         "QPushButton {"
+        "   background-color: #2196F3;"
+        "   color: white;"
+        "   font-size: 12px;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #1976D2;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #0D47A1;"
+        "}"
+    );
+    
+    m_pushButton = new QPushButton(QString::fromUtf8("🚀 上传推送"), this);
+    m_pushButton->setStyleSheet(
+        "QPushButton {"
         "   background-color: #FF9800;"
         "   color: white;"
         "   font-size: 12px;"
@@ -150,25 +169,6 @@ void DatabaseBranchView::setupUi() {
         "}"
         "QPushButton:pressed {"
         "   background-color: #E65100;"
-        "}"
-    );
-    
-    m_pushButton = new QPushButton(QString::fromUtf8("🚀 上传推送"), this);
-    m_pushButton->setStyleSheet(
-        "QPushButton {"
-        "   background-color: #9C27B0;"
-        "   color: white;"
-        "   font-size: 12px;"
-        "   font-weight: bold;"
-        "   border: none;"
-        "   border-radius: 4px;"
-        "   padding: 8px;"
-        "}"
-        "QPushButton:hover {"
-        "   background-color: #7B1FA2;"
-        "}"
-        "QPushButton:pressed {"
-        "   background-color: #6A1B9A;"
         "}"
     );
     

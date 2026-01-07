@@ -60,15 +60,15 @@ void MrZone::setupUi() {
     
     // 检查冲突按钮
     m_checkConflictButton = new QPushButton(QString::fromUtf8("🔍 检查冲突"), this);
-    m_checkConflictButton->setMinimumHeight(40);
     m_checkConflictButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #2196F3;"
         "   color: white;"
-        "   font-size: 13px;"
+        "   font-size: 12px;"
         "   font-weight: bold;"
         "   border: none;"
-        "   border-radius: 5px;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
         "}"
         "QPushButton:hover {"
         "   background-color: #0b7dda;"
@@ -85,19 +85,24 @@ void MrZone::setupUi() {
     
     // 发起合并按钮
     m_submitButton = new QPushButton(QString::fromUtf8("📤 发起合并"), this);
-    m_submitButton->setMinimumHeight(40);
     m_submitButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #4CAF50;"
         "   color: white;"
-        "   font-size: 14px;"
+        "   font-size: 12px;"
         "   font-weight: bold;"
         "   border: none;"
-        "   border-radius: 5px;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
         "}"
         "QPushButton:hover {"
         "   background-color: #45a049;"
         "}"
+        "QPushButton:pressed {"
+        "   background-color: #3d8b40;"
+        "}"
+        "QPushButton:disabled {"
+        "   background-color: #cccccc;"
         "QPushButton:pressed {"
         "   background-color: #3d8b40;"
         "}"

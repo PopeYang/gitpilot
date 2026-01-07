@@ -34,19 +34,37 @@ void FeatureBranchView::setupUi() {
     mainLayout->setSpacing(15);
     mainLayout->setContentsMargins(20, 20, 20, 20);
     
-    // 标题
-    QLabel* titleLabel = new QLabel(QString::fromUtf8("🟢 开发分支 - 活跃工作区"), this);
-    QFont titleFont = titleLabel->font();
-    titleFont.setPointSize(14);
-    titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
-    mainLayout->addWidget(titleLabel);
+    // 顶部友好提示区域 - 绿色主题
+    QGroupBox* welcomeGroup = new QGroupBox(QString::fromUtf8("🟢 开发分支 - 活跃工作区"), this);
+    welcomeGroup->setStyleSheet(
+        "QGroupBox {"
+        "   background-color: #E8F5E9;"  // 浅绿色背景
+        "   border: 1px solid #4CAF50;"  // 绿色边框
+        "   border-radius: 5px;"
+        "   margin-top: 10px;"
+        "   font-size: 14px;"
+        "   font-weight: bold;"
+        "   color: #2E7D32;"
+        "}"
+        "QGroupBox::title {"
+        "   subcontrol-origin: margin;"
+        "   subcontrol-position: top left;"
+        "   padding: 0 5px;"
+        "   left: 10px;"
+        "}"
+    );
     
-    // 分割线
-    QFrame* line = new QFrame(this);
-    line->setFrameShape(QFrame::HLine);
-    line->setFrameShadow(QFrame::Sunken);
-    mainLayout->addWidget(line);
+    QVBoxLayout* welcomeLayout = new QVBoxLayout(welcomeGroup);
+    QLabel* welcomeLabel = new QLabel(
+        QString::fromUtf8("• 尽情挥洒创意，代码改动无负担\n"
+                         "• 随时本地提交，保护灵感的火花\n"
+                         "• 困难及时求助，团队就在你身边"), 
+        this);
+    welcomeLabel->setStyleSheet("color: #2E7D32; font-size: 13px; background: transparent; border: none;");
+    welcomeLabel->setWordWrap(true);
+    welcomeLayout->addWidget(welcomeLabel);
+    
+    mainLayout->addWidget(welcomeGroup);
     
     // 修改文件列表
     QGroupBox* filesGroup = new QGroupBox(QString::fromUtf8("📝 待提交的修改"), this);
@@ -57,36 +75,103 @@ void FeatureBranchView::setupUi() {
     m_filesListWidget->setMaximumHeight(200);
     filesLayout->addWidget(m_filesListWidget);
     
-    // 按钮区域 - 简化布局
+    // 按钮区域 - 采用Main/Database一致的布局
     QHBoxLayout* buttonsLayout = new QHBoxLayout();
     
     m_refreshButton = new QPushButton(QString::fromUtf8("🔄 刷新状态"), this);
     m_stageAllButton = new QPushButton(QString::fromUtf8("✅ 暂存全部"), this);
-    m_commitButton = new QPushButton(QString::fromUtf8("💾 本地提交"), this);
-    m_pushButton = new QPushButton(QString::fromUtf8("⬆️ 推送远端"), this);
     
-    // 设置按钮样式
-    m_commitButton->setStyleSheet(
-        "QPushButton { background-color: #2196F3; color: white; font-weight: bold; padding: 5px 15px; border-radius: 3px; }"
-        "QPushButton:hover { background-color: #0b7dda; }"
-        "QPushButton:disabled { background-color: #cccccc; color: #666666; }"
+    // 刷新和暂存采用白色样式
+    m_refreshButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: white;"
+        "   color: #333;"
+        "   border: 1px solid #ccc;"
+        "   font-size: 12px;"
+        "   font-weight: bold;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #f5f5f5;"
+        "}"
     );
     
-    m_pushButton->setStyleSheet(
-        "QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 5px 15px; border-radius: 3px; }"
-        "QPushButton:hover { background-color: #e68900; }"
-        "QPushButton:disabled { background-color: #cccccc; color: #666666; }"
+    m_stageAllButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: white;"
+        "   color: #333;"
+        "   border: 1px solid #ccc;"
+        "   font-size: 12px;"
+        "   font-weight: bold;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #f5f5f5;"
+        "}"
     );
     
     buttonsLayout->addWidget(m_refreshButton);
     buttonsLayout->addWidget(m_stageAllButton);
-    buttonsLayout->addWidget(m_commitButton);
-    buttonsLayout->addWidget(m_pushButton);
-    buttonsLayout->addStretch();
-    
     filesLayout->addLayout(buttonsLayout);
     
     mainLayout->addWidget(filesGroup);
+
+    // 提交操作区域
+    QGroupBox* commitGroup = new QGroupBox(QString::fromUtf8("📝 提交操作"), this);
+    commitGroup->setStyleSheet("QGroupBox { font-size: 13px; font-weight: bold; padding: 10px; }");
+    
+    QVBoxLayout* commitLayout = new QVBoxLayout(commitGroup);
+    
+    QHBoxLayout* commitButtonsLayout = new QHBoxLayout();
+    
+    m_commitButton = new QPushButton(QString::fromUtf8("📝 本地提交"), this);
+    m_pushButton = new QPushButton(QString::fromUtf8("🚀 上传推送"), this);
+    
+    // 提交按钮 - 蓝色
+    m_commitButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #2196F3;"
+        "   color: white;"
+        "   font-size: 12px;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #1976D2;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #0D47A1;"
+        "}"
+    );
+    
+    // 推送按钮 - 橙色
+    m_pushButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #FF9800;"
+        "   color: white;"
+        "   font-size: 12px;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #F57C00;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #E65100;"
+        "}"
+    );
+    
+    commitButtonsLayout->addWidget(m_commitButton);
+    commitButtonsLayout->addWidget(m_pushButton);
+    commitLayout->addLayout(commitButtonsLayout);
+    
+    mainLayout->addWidget(commitGroup);
     
     // MR提交专区
     m_mrZone = new MrZone(m_gitService, m_gitLabApi, this);
