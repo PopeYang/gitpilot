@@ -87,7 +87,7 @@ void DatabaseBranchView::setupUi() {
     // 文件操作按钮
     QHBoxLayout* fileButtonsLayout = new QHBoxLayout();
     
-    m_refreshButton = new QPushButton(QString::fromUtf8("🔄 刷新"), this);
+    m_refreshButton = new QPushButton(QString::fromUtf8("🔄 刷新状态"), this);
     m_stageAllButton = new QPushButton(QString::fromUtf8("📋 全部暂存"), this);
     
     m_refreshButton->setStyleSheet(
@@ -134,7 +134,7 @@ void DatabaseBranchView::setupUi() {
     
     QHBoxLayout* commitButtonsLayout = new QHBoxLayout();
     
-    m_commitButton = new QPushButton(QString::fromUtf8("📝 提交更改"), this);
+    m_commitButton = new QPushButton(QString::fromUtf8("📝 本地提交"), this);
     m_commitButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #FF9800;"
@@ -153,7 +153,7 @@ void DatabaseBranchView::setupUi() {
         "}"
     );
     
-    m_pushButton = new QPushButton(QString::fromUtf8("🚀 推送至远程"), this);
+    m_pushButton = new QPushButton(QString::fromUtf8("🚀 上传推送"), this);
     m_pushButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #9C27B0;"
