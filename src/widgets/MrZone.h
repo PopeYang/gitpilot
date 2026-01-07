@@ -27,6 +27,9 @@ public:
     // 根据当前分支更新UI状态
     void updateForBranch(const QString& currentBranch);
     
+    // 触发提交动作（供外部调用）
+    void triggerSubmit();
+    
 signals:
     void mrSubmitted(const QString& targetBranch, const QString& title, const QString& description);
     void conflictCheckRequested(const QString& targetBranch);

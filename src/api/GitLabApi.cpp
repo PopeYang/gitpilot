@@ -218,7 +218,41 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
     QByteArray responseData = reply->readAll();
     QJsonDocument doc = QJsonDocument::fromJson(responseData);
     
-   if (!doc.isNull()) {
+    // 检查业务逻辑错误（HTTP 4xx/5xx）
+    if (statusCode >= 400) {
+        QString errorMsg = QString("HTTP %1").arg(statusCode);
+        QString detailedError;
+        
+        if (!doc.isNull() && doc.isObject()) {
+            QJsonObject obj = doc.object();
+            // GitLab错误信息通常在 "message" 或 "error" 字段
+            if (obj.contains("message")) {
+                if (obj["message"].isArray()) {
+                    QJsonArray msgs = obj["message"].toArray();
+                    QStringList msgList;
+                    for (const auto& m : msgs) msgList << m.toString();
+                    detailedError = msgList.join("; ");
+                } else {
+                    detailedError = obj["message"].toString();
+                }
+            } else if (obj.contains("error")) {
+                detailedError = obj["error"].toString();
+            }
+        }
+        
+        if (detailedError.isEmpty()) {
+            detailedError = errorMsg;
+        } else {
+            detailedError = QString("%1: %2").arg(errorMsg, detailedError);
+        }
+        
+        LOG_ERROR(QString("API业务错误 [%1]: %2").arg(callbackId, detailedError));
+        emit apiError(callbackId, detailedError);
+        reply->deleteLater();
+        return;
+    }
+    
+    if (!doc.isNull()) {
         
         // 根据callbackId分发处理
         if (callbackId == "getCurrentUser") {

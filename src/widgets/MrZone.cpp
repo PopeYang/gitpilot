@@ -141,6 +141,10 @@ void MrZone::updateForBranch(const QString& currentBranch) {
     }
 }
 
+void MrZone::triggerSubmit() {
+    onSubmitClicked();
+}
+
 void MrZone::lockTargetBranch(const QString& branch) {
     m_targetBranchCombo->clear();
     m_targetBranchCombo->addItem(branch);

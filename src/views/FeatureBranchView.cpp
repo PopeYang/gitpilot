@@ -198,11 +198,12 @@ void FeatureBranchView::onPushClicked() {
         return;
     }
     
-    // 显示进度对话框
+    // 显示进度对话框，宽度固定255
     QProgressDialog* progress = new QProgressDialog(
         QString::fromUtf8("正在推送到远程仓库..."), 
         QString(), 0, 0, this);
     progress->setWindowTitle(QString::fromUtf8("推送中"));
+    progress->setMinimumWidth(255);  // 设置最小宽度，避免太窄，但允许自适应
     progress->setWindowModality(Qt::WindowModal);
     progress->setMinimumDuration(0);
     progress->setCancelButton(nullptr);
@@ -220,11 +221,25 @@ void FeatureBranchView::onPushClicked() {
         watcher->deleteLater();
         
         if (success) {
-            QMessageBox::information(this, QString::fromUtf8("推送成功"),
-                QString::fromUtf8("✅ 代码已成功推送到远程仓库"));
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(QString::fromUtf8("推送成功"));
+            msgBox.setText(QString::fromUtf8("✅ 代码已成功推送到远程仓库"));
+            msgBox.setIcon(QMessageBox::Information);
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setMinimumWidth(255); // 设置最小宽度
+            msgBox.exec();
+            msgBox.exec();
         } else {
-            QMessageBox::warning(this, QString::fromUtf8("推送失败"),
-                QString::fromUtf8("推送失败，请检查网络连接和权限"));
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(QString::fromUtf8("推送失败"));
+            msgBox.setText(QString::fromUtf8("推送失败，请检查网络连接和权限"));
+            msgBox.setIcon(QMessageBox::Warning);
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setMinimumWidth(255); // 设置最小宽度
+            msgBox.exec();
+            msgBox.exec();
         }
     });
     
@@ -237,11 +252,12 @@ void FeatureBranchView::onPushClicked() {
 }
 
 void FeatureBranchView::onConflictCheckRequested(const QString& targetBranch) {
-    // 显示进度对话框
+    // 显示进度对话框，宽度固定255
     QProgressDialog* progress = new QProgressDialog(
         QString::fromUtf8("正在检查冲突..."), 
         QString(), 0, 0, this);
     progress->setWindowTitle(QString::fromUtf8("检查中"));
+    progress->setMinimumWidth(255);  // 设置最小宽度
     progress->setWindowModality(Qt::WindowModal);
     progress->setMinimumDuration(0);
     progress->setCancelButton(nullptr);
@@ -262,10 +278,32 @@ void FeatureBranchView::onConflictCheckRequested(const QString& targetBranch) {
         watcher->deleteLater();
         
         if (hasNoConflict) {
-            QMessageBox::information(this, QString::fromUtf8("检查完成"),
-                QString::fromUtf8("✅ ") + conflictInfo + QString::fromUtf8("\n\n可以继续发起合并请求。"));
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(QString::fromUtf8("检查完成"));
+            msgBox.setText(QString::fromUtf8("✅ ") + conflictInfo + QString::fromUtf8("\n\n可以继续发起合并请求。"));
+            msgBox.setIcon(QMessageBox::Information);
+            msgBox.setMinimumWidth(255);
+            
+            // 添加"发起合并"按钮
+            QPushButton* mergeBtn = msgBox.addButton(QString::fromUtf8("发起合并"), QMessageBox::AcceptRole);
+            msgBox.addButton(QMessageBox::Close);
+            
+            msgBox.exec();
+            
+            if (msgBox.clickedButton() == mergeBtn) {
+                // 触发MR提交
+                if (m_mrZone) {
+                    m_mrZone->triggerSubmit();
+                }
+            }
         } else {
-            QMessageBox::warning(this, QString::fromUtf8("发现冲突"), conflictInfo);
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(QString::fromUtf8("发现冲突"));
+            msgBox.setText(conflictInfo);
+            msgBox.setIcon(QMessageBox::Warning);
+            msgBox.setStandardButtons(QMessageBox::Ok);
+            msgBox.setMinimumWidth(255);
+            msgBox.exec();
         }
     });
     
@@ -292,11 +330,12 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
     params.removeSourceBranch = false;
     params.squash = false;
     
-    // 显示等待动画
+    // 显示等待动画，宽度255
     QProgressDialog* progress = new QProgressDialog(
         QString::fromUtf8("正在创建合并请求..."), 
         QString(), 0, 0, this);
     progress->setWindowTitle(QString::fromUtf8("提交中"));
+    progress->setMinimumWidth(255);
     progress->setWindowModality(Qt::WindowModal);
     progress->setMinimumDuration(0);
     progress->setCancelButton(nullptr);  // 不可取消
@@ -329,6 +368,7 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
             msgBox.setIcon(QMessageBox::NoIcon);  // 不使用默认图标，标题中已有emoji
             msgBox.setStandardButtons(QMessageBox::Ok);
             msgBox.setDefaultButton(QMessageBox::Ok);
+            msgBox.setMinimumWidth(255);
             
             // 让链接可以打开
             msgBox.setTextInteractionFlags(Qt::TextBrowserInteraction);
