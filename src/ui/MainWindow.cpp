@@ -63,6 +63,9 @@ void MainWindow::setupUi() {
     connect(m_protectedBranchView, &ProtectedBranchView::branchChanged, 
             this, &MainWindow::loadCurrentBranch);
     
+    connect(m_mainBranchView, &MainBranchView::branchSwitched,
+            this, &MainWindow::loadCurrentBranch);
+    
     // 状态栏 - 双标签
     m_operationLabel = new QLabel(QString::fromUtf8("就绪"), this);
     m_branchLabel = new QLabel("", this);

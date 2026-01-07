@@ -22,6 +22,9 @@ public:
 protected:
     void showEvent(QShowEvent* event) override;
     
+signals:
+    void branchSwitched();  // 通知主窗口刷新
+    
 private slots:
     void onPullClicked();
     void onTriggerBuildClicked();

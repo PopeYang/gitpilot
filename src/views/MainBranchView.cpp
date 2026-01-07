@@ -8,6 +8,7 @@
 #include <QListWidget>
 #include <QGroupBox>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QProgressDialog>
 #include <QApplication>
 #include <QtConcurrent>
@@ -298,8 +299,95 @@ void MainBranchView::onTriggerBuildClicked() {
 }
 
 void MainBranchView::onSwitchBranchClicked() {
-    QMessageBox::information(this, QString::fromUtf8("切换分支"),
-        QString::fromUtf8("请使用外部工具（如终端或IDE）切换分支。\n\n"
-                         "推荐切换到受保护分支（develop/internal）\n"
-                         "或创建新的feature分支进行开发。"));
+    // 获取所有分支列表
+    QStringList branches = m_gitService->getAllBranches();
+    QString currentBranch = m_gitService->getCurrentBranch();
+    
+    if (branches.isEmpty()) {
+        QMessageBox::warning(this, QString::fromUtf8("无可用分支"),
+            QString::fromUtf8("未找到可切换的分支"));
+        return;
+    }
+    
+    // 从列表中移除当前分支
+    branches.removeAll(currentBranch);
+    
+    if (branches.isEmpty()) {
+        QMessageBox::information(this, QString::fromUtf8("提示"),
+            QString::fromUtf8("没有其他分支可供切换"));
+        return;
+    }
+    
+    // 创建选择对话框
+    bool ok;
+    QString selectedBranch = QInputDialog::getItem(
+        this,
+        QString::fromUtf8("切换分支"),
+        QString::fromUtf8("选择要切换的分支：\n\n当前分支：%1").arg(currentBranch),
+        branches,
+        0,  // 默认选择第一个
+        false,  // 不可编辑
+        &ok
+    );
+    
+    if (!ok || selectedBranch.isEmpty()) {
+        return;
+    }
+    
+    // 检查是否有未提交的修改
+    if (m_gitService->hasUncommittedChanges()) {
+        int ret = QMessageBox::warning(
+            this,
+            QString::fromUtf8("发现未提交的修改"),
+            QString::fromUtf8("当前工作区有未提交的修改，切换分支可能会丢失修改。\n\n"
+                             "是否继续切换？\n\n"
+                             "建议：先暂存或提交修改后再切换。"),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No
+        );
+        
+        if (ret != QMessageBox::Yes) {
+            return;
+        }
+    }
+    
+    // 显示进度对话框
+    QProgressDialog* progress = new QProgressDialog(
+        QString::fromUtf8("正在切换分支..."), 
+        QString(), 0, 0, this);
+    progress->setWindowTitle(QString::fromUtf8("切换中"));
+    progress->setMinimumWidth(255);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setCancelButton(nullptr);
+    progress->setValue(0);
+    progress->show();
+    
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress, selectedBranch]() {
+        bool success = watcher->result();
+        
+        progress->close();
+        progress->deleteLater();
+        watcher->deleteLater();
+        
+        if (success) {
+            QMessageBox::information(this, QString::fromUtf8("切换成功"),
+                QString::fromUtf8("✅ 已成功切换到分支：%1\n\n"
+                                 "主窗口将自动刷新显示对应的视图。").arg(selectedBranch));
+            
+            // 触发主窗口刷新
+            emit branchSwitched();
+        } else {
+            QMessageBox::warning(this, QString::fromUtf8("切换失败"),
+                QString::fromUtf8("切换分支失败，请检查工作区状态"));
+        }
+    });
+    
+    QFuture<bool> future = QtConcurrent::run([this, selectedBranch]() {
+        return m_gitService->switchBranch(selectedBranch);
+    });
+    
+    watcher->setFuture(future);
 }
