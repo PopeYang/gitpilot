@@ -1,0 +1,183 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 触发条件：推送版本标签（如 v1.0.0）
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  QT_VERSION: '6.8.3'
+  QT_ARCH: 'win64_msvc2022_64'
+  BUILD_TYPE: 'Release'
+
+jobs:
+  build-windows:
+    name: Build Windows Release
+    runs-on: windows-latest
+    
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史，用于生成版本信息
+      
+      # 2. 设置 MSVC 环境
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+      
+      - name: Setup MSVC Environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      
+      # 3. 安装 Qt
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'windows'
+          target: 'desktop'
+          arch: ${{ env.QT_ARCH }}
+          cache: true  # 启用缓存加速
+          modules: ''  # 不需要额外模块
+      
+      # 4. 配置 CMake
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake .. `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -G "Visual Studio 17 2022" `
+            -A x64
+      
+      # 5. 编译项目
+      - name: Build Project
+        run: |
+          cd build
+          cmake --build . --config ${{ env.BUILD_TYPE }} --parallel
+      
+      # 6. 准备部署目录
+      - name: Prepare Deploy Directory
+        run: |
+          New-Item -ItemType Directory -Path deploy -Force
+          Copy-Item "build\${{ env.BUILD_TYPE }}\gitpilot.exe" deploy\
+      
+      # 7. 使用 windeployqt 收集依赖
+      - name: Deploy Qt Dependencies
+        run: |
+          windeployqt --release --no-compiler-runtime --no-translations deploy\gitpilot.exe
+      
+      # 8. 复制文档
+      - name: Copy Documentation
+        run: |
+          Copy-Item README.md deploy\
+          Copy-Item 使用指南.md deploy\
+          Copy-Item 打包分发指南.md deploy\ -ErrorAction SilentlyContinue
+      
+      # 9. 创建绿色版 ZIP
+      - name: Create Portable ZIP
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          if ([string]::IsNullOrEmpty($version)) {
+            $version = "dev-$(Get-Date -Format 'yyyyMMdd')"
+          }
+          Compress-Archive -Path deploy\* -DestinationPath "GitPilot-$version-Portable.zip"
+      
+      # 10. 下载 Inno Setup（用于制作安装包）
+      - name: Download Inno Setup
+        run: |
+          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "innosetup.exe"
+          Start-Process -FilePath "innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+      
+      # 11. 更新安装脚本版本号
+      - name: Update Installer Version
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          if ([string]::IsNullOrEmpty($version)) {
+            $version = "0.0.0-dev"
+          }
+          (Get-Content installer.iss) -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`"" | Set-Content installer.iss
+      
+      # 12. 编译安装包
+      - name: Build Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+      
+      # 13. 获取安装包文件名
+      - name: Get Installer Filename
+        id: installer
+        run: |
+          $installer = Get-ChildItem installer_output\*.exe | Select-Object -First 1
+          echo "filename=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          echo "path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+      
+      # 14. 上传构建产物（Artifact）
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GitPilot-Windows-${{ github.ref_name }}
+          path: |
+            GitPilot-*.zip
+            installer_output/*.exe
+          retention-days: 30
+      
+      # 15. 创建 GitHub Release（仅标签触发时）
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            GitPilot-*.zip
+            installer_output/*.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## GitPilot ${{ github.ref_name }}
+            
+            ### 📦 下载说明
+            
+            - **安装包版本**: `${{ steps.installer.outputs.filename }}`  
+              推荐大多数用户使用，双击安装即可
+            
+            - **绿色版**: `GitPilot-*-Portable.zip`  
+              解压即用，无需安装
+            
+            ### 🔧 系统要求
+            
+            - Windows 10/11 x64
+            - 如提示缺少 DLL，请安装 [VC++ 可再发行组件](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+            
+            ### 📝 变更日志
+            
+            详见下方自动生成的更新内容
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # 16. 构建摘要
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "### 🎉 GitPilot 构建完成" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "| 项目 | 信息 |" >> $env:GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $env:GITHUB_STEP_SUMMARY
+          echo "| 版本 | ${{ github.ref_name }} |" >> $env:GITHUB_STEP_SUMMARY
+          echo "| Qt 版本 | ${{ env.QT_VERSION }} |" >> $env:GITHUB_STEP_SUMMARY
+          echo "| 构建类型 | ${{ env.BUILD_TYPE }} |" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          
+          $zipFile = Get-ChildItem GitPilot-*.zip | Select-Object -First 1
+          if ($zipFile) {
+            $zipSize = [math]::Round($zipFile.Length / 1MB, 2)
+            echo "| 绿色版 | $($zipFile.Name) ($zipSize MB) |" >> $env:GITHUB_STEP_SUMMARY
+          }
+          
+          $exeFile = Get-ChildItem installer_output\*.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($exeFile) {
+            $exeSize = [math]::Round($exeFile.Length / 1MB, 2)
+            echo "| 安装包 | $($exeFile.Name) ($exeSize MB) |" >> $env:GITHUB_STEP_SUMMARY
+          }

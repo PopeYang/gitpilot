@@ -1,5 +1,10 @@
 # GitPilot - 智能 GitLab 工作流助手 ✈️
 
+<!-- 请将 yourname/gitpilot 替换为您的实际 GitHub 仓库路径 -->
+[![Build Status](https://github.com/yourname/gitpilot/actions/workflows/build-release.yml/badge.svg)](https://github.com/yourname/gitpilot/actions/workflows/build-release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/yourname/gitpilot)](https://github.com/yourname/gitpilot/releases/latest)
+[![License](https://img.shields.io/github/license/yourname/gitpilot)](LICENSE)
+
 > GitLab Workflow Automation Tool：简化GitLab CI/CD流程的智能Git客户端
 
 ## 🎯 项目目标
@@ -42,23 +47,29 @@
 
 ## 🚀 快速开始
 
-### 1. 克隆项目
-```bash
-git clone <repository-url>
-cd gitpilot
+### 本地开发测试
+
+#### 使用自动化脚本（推荐）
+```powershell
+# 一键编译（自动配置环境）
+.\build.ps1
+
+# 或快速编译（假设环境已配置）
+.\quick-build.ps1
 ```
 
-### 2. 构建项目
-```bash
+#### 手动编译
+```powershell
 mkdir build
 cd build
-cmake .. -DCMAKE_PREFIX_PATH="C:/Qt/6.x.x/msvc2019_64"
+cmake .. -DCMAKE_PREFIX_PATH="D:/qt/6.8.3/msvc2022_64"
 cmake --build . --config Release
 ```
 
-### 3. 运行程序
-```bash
-.\Release\gitpilot.exe
+### 运行程序
+```powershell
+cd build\Release
+.\gitpilot.exe
 ```
 
 首次运行会启动配置向导，引导您：
@@ -103,6 +114,32 @@ cmake --build . --config Release
 4. **等待审核通过后自动触发构建**
 
 5. **获取构建产物下载链接**
+
+## 📦 发布与下载
+
+### 自动化发布
+
+项目使用 GitHub Actions 自动化构建和发布：
+
+1. **自动构建触发**：推送版本标签时自动编译打包
+   ```powershell
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. **构建产物**：自动生成两种分发格式
+   - 🟢 **绿色版** (`GitPilot-x.x.x-Portable.zip`) - 解压即用
+   - 📦 **安装包** (`GitPilot-Setup-x.x.x.exe`) - 专业安装程序
+
+3. **自动发布**：构建完成后自动创建 GitHub Release
+
+### 下载最新版本
+
+访问 [Releases 页面](https://github.com/yourname/gitpilot/releases/latest) 下载最新版本。
+
+**系统要求**：
+- Windows 10/11 (64-bit)
+- 如提示缺少 DLL，安装 [VC++ 可再发行组件](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 
 ## 🏆 QC申报亮点
 

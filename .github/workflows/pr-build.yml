@@ -1,0 +1,68 @@
+name: PR Build Test
+
+on:
+  pull_request:
+    branches: [ main, master, develop ]
+  push:
+    branches: [ main, master, develop ]
+
+env:
+  QT_VERSION: '6.8.3'
+  QT_ARCH: 'win64_msvc2022_64'
+  BUILD_TYPE: 'Release'
+
+jobs:
+  test-build:
+    name: Test Build on Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'windows'
+          target: 'desktop'
+          arch: ${{ env.QT_ARCH }}
+          cache: true
+      
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake .. `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -G "Visual Studio 17 2022" `
+            -A x64
+      
+      - name: Build Project
+        run: |
+          cd build
+          cmake --build . --config ${{ env.BUILD_TYPE }} --parallel
+      
+      - name: Verify Executable
+        run: |
+          if (Test-Path "build\${{ env.BUILD_TYPE }}\gitpilot.exe") {
+            Write-Host "✅ 构建成功！可执行文件已生成"
+            $size = (Get-Item "build\${{ env.BUILD_TYPE }}\gitpilot.exe").Length
+            Write-Host "文件大小: $([math]::Round($size / 1MB, 2)) MB"
+          } else {
+            Write-Host "❌ 构建失败！未找到可执行文件"
+            exit 1
+          }
+      
+      - name: Build Summary
+        run: |
+          echo "### ✅ PR 构建测试通过" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "- Qt 版本: ${{ env.QT_VERSION }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "- 编译器: MSVC 2022" >> $env:GITHUB_STEP_SUMMARY
+          echo "- 构建类型: ${{ env.BUILD_TYPE }}" >> $env:GITHUB_STEP_SUMMARY
