@@ -40,3 +40,16 @@ config.ini
 .DS_Store
 Thumbs.db
 .gitlab-ci.yml
+
+# 文档文件（仅保留 README.md）
+*.md
+!README.md
+
+# 打包部署相关（由 GitHub Actions 处理）
+deploy/
+installer_output/
+*.zip
+package.ps1
+make-installer.ps1
+installer.iss
+clean-git-history.ps1
