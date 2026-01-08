@@ -33,6 +33,8 @@ jobs:
           target: 'desktop'
           arch: ${{ env.QT_ARCH }}
           cache: true
+          cache-key-prefix: 'install-qt-action'
+        continue-on-error: false  # 即使缓存失败也继续构建
       
       - name: Configure CMake
         run: |

@@ -41,7 +41,9 @@ jobs:
           target: 'desktop'
           arch: ${{ env.QT_ARCH }}
           cache: true  # 启用缓存加速
+          cache-key-prefix: 'install-qt-action'
           modules: ''  # 不需要额外模块
+        continue-on-error: false  # 即使缓存失败也继续构建
       
       # 4. 配置 CMake
       - name: Configure CMake
