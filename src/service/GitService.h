@@ -16,6 +16,15 @@ struct FileStatus {
 };
 
 /**
+ * @brief Cherry-pick冲突检测结果
+ */
+struct CherryPickConflictResult {
+    bool hasConflict;           // 是否存在冲突
+    QStringList conflictFiles;  // 冲突文件列表
+    QString errorMessage;       // 错误信息（如果检测失败）
+};
+
+/**
  * @brief Git操作服务层
  * 封装所有Git命令，使用QProcess执行
  */
@@ -55,6 +64,7 @@ public:
     bool pullLatest();
     bool fetch();
     bool checkMergeConflict(const QString& targetBranch, QString& conflictInfo);  // 检查合并冲突
+    CherryPickConflictResult checkCherryPickConflict(const QString& sourceBranch, const QString& targetBranch);  // Cherry-pick冲突检测
     
     // Tags操作
     QStringList getTags(int limit = 10);  // 获取最近的Tags

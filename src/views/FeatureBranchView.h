@@ -9,6 +9,8 @@ class GitLabApi;
 class MrZone;
 class QListWidget;
 class QPushButton;
+struct MrResponse;
+struct CherryPickConflictResult;
 
 class FeatureBranchView : public QWidget {
     Q_OBJECT
@@ -32,6 +34,14 @@ private:
     void connectSignals();
     void updateFileList();
     void updateMrZone();
+    
+    // Bugfix cherry-pick 同步工作流
+    bool isBugfixBranch(const QString& branchName);
+    void checkAndPromptSync(const QString& sourceBranch, const QString& targetBranch, const QString& originalTitle);
+    void promptSyncNoConflict(const QString& sourceBranch, const QString& targetBranch, const QString& originalTitle);
+    void promptSyncWithConflict(const QString& sourceBranch, const QString& targetBranch, const QString& originalTitle, const QStringList& conflictFiles);
+    void createSyncMergeRequest(const QString& sourceBranch, const QString& targetBranch, const QString& originalTitle, bool hasConflict);
+    void showMrSuccessDialog(const MrResponse& mr);
     
     GitService* m_gitService;
     GitLabApi* m_gitLabApi;

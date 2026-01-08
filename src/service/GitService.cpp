@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QSet>
 
 GitService::GitService(QObject* parent)
     : QObject(parent)
@@ -298,6 +299,78 @@ bool GitService::checkMergeConflict(const QString& targetBranch, QString& confli
     emit operationFinished("check-conflict", true);
     return true;
 }
+
+CherryPickConflictResult GitService::checkCherryPickConflict(
+    const QString& sourceBranch,
+    const QString& targetBranch) {
+    
+    CherryPickConflictResult result;
+    result.hasConflict = false;
+    
+    QString output, error;
+    
+    // 1. Fetch最新代码
+    if (!executeGitCommand({"fetch", "origin"}, output, error)) {
+        result.errorMessage = QString::fromUtf8("获取远程代码失败: ") + error;
+        LOG_ERROR(result.errorMessage);
+        return result;
+    }
+    
+    // 2. 构建引用
+    QString sourceRef = QString("origin/%1").arg(sourceBranch);
+    QString targetRef = QString("origin/%1").arg(targetBranch);
+    
+    // 3. 找到共同祖先
+    QString mergeBase;
+    if (!executeGitCommand({"merge-base", targetRef, sourceRef}, 
+                           mergeBase, error)) {
+        result.errorMessage = QString::fromUtf8("无法找到共同祖先: ") + error;
+        LOG_ERROR(result.errorMessage);
+        return result;
+    }
+    mergeBase = mergeBase.trimmed();
+    
+    // 4. 执行 merge-tree 三方合并分析
+    QString mergeTreeOutput;
+    // git merge-tree 总是返回成功，即使有冲突
+    executeGitCommand({"merge-tree", mergeBase, targetRef, sourceRef}, 
+                      mergeTreeOutput, error);
+    
+    // 5. 检测冲突标记
+    if (mergeTreeOutput.contains("<<<<<<<")) {
+        result.hasConflict = true;
+        
+        // 6. 解析冲突文件列表
+        // merge-tree 输出格式： @@@@@@@ filename @@@@@@@
+        QRegularExpression fileRegex(R"(@@@@@@@\s+(.+?)\s+@@@@@@@)");
+        QRegularExpressionMatchIterator it = fileRegex.globalMatch(mergeTreeOutput);
+        
+        QSet<QString> uniqueFiles;  // 去重
+        while (it.hasNext()) {
+            QRegularExpressionMatch match = it.next();
+            QString filename = match.captured(1).trimmed();
+            if (!filename.isEmpty()) {
+                uniqueFiles.insert(filename);
+            }
+        }
+        
+        result.conflictFiles = uniqueFiles.values();
+        
+        // 如果没有解析到文件名，至少标记有冲突
+        if (result.conflictFiles.isEmpty()) {
+            result.conflictFiles << QString::fromUtf8("(检测到冲突，但无法解析文件名)");
+        }
+        
+        LOG_INFO(QString("Cherry-pick冲突检测: %1 -> %2, 发现%3个冲突文件")
+             .arg(sourceBranch, targetBranch).arg(result.conflictFiles.size()));
+    } else {
+        LOG_INFO(QString("Cherry-pick冲突检测: %1 -> %2, 无冲突")
+             .arg(sourceBranch, targetBranch));
+    }
+    
+    return result;
+}
+
 
 QStringList GitService::getTags(int limit) {
     // 获取Tags，按版本号倒序排列

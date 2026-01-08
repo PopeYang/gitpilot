@@ -438,7 +438,7 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
     // 异步执行Push操作
     QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
     
-    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress, params]() {
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress, params, sourceBranch]() {
         bool pushSuccess = watcher->result();
         watcher->deleteLater();
         
@@ -455,34 +455,21 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
         
         // 连接API信号（一次性连接）
         connect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, 
-            [this, progress](const MrResponse& mr) {
+            [this, progress, params, sourceBranch](const MrResponse& mr) {
                 progress->close();
                 progress->deleteLater();
                 
-                // 创建富文本消息
-                QString message = QString(
-                    "<h3 style='color: green;'>✅ 合并请求创建成功！</h3>"
-                    "<p><b>编号:</b> %1</p>"
-                    "<p><b>标题:</b> %2</p>"
-                    "<p><b>状态:</b> %3</p>"
-                    "<p><b>链接:</b> ⬇️⬇️⬇️ <br>"
-                    "<a href='%4'>%4</a></p>"
-                    "<p style='color: #666; font-size: 11px;'>💡 点击链接在浏览器中查看合并请求详情</p>"
-                ).arg(mr.iid).arg(mr.title, mr.state, mr.webUrl);
+                // 显示MR创建成功
+                showMrSuccessDialog(mr);
                 
-                QMessageBox msgBox(this);
-                msgBox.setWindowTitle(QString::fromUtf8("合并请求创建成功"));
-                msgBox.setTextFormat(Qt::RichText);
-                msgBox.setText(message);
-                msgBox.setIcon(QMessageBox::NoIcon);
-                msgBox.setStandardButtons(QMessageBox::Ok);
-                msgBox.setDefaultButton(QMessageBox::Ok);
-                msgBox.setMinimumWidth(255);
-                msgBox.setTextInteractionFlags(Qt::TextBrowserInteraction);
-                msgBox.exec();
-                
-                // 收到MR后，可选：触发Pipeline
-                // m_gitLabApi->triggerPipeline(mr.source_branch); // 暂时不默认触发，以免滥用
+                // 检测是否需要同步（仅针对bugfix分支）
+                if (isBugfixBranch(sourceBranch)) {
+                    QString syncTarget = (params.targetBranch == "develop") 
+                                         ? "internal" : "develop";
+                    
+                    // 启动异步冲突检测并提示同步
+                    checkAndPromptSync(sourceBranch, syncTarget, params.title);
+                }
                 
                 disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
                 disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
@@ -521,4 +508,232 @@ void FeatureBranchView::onMrSubmitted(const QString& targetBranch, const QString
     });
     
     watcher->setFuture(future);
+}// Bugfix 分支同步工作流的辅助函数实现
+// 这些函数将被追加到 FeatureBranchView.cpp 的末尾
+
+// 检测是否为 bugfix 分支（支持 bugfix/xxx 命名）
+bool FeatureBranchView::isBugfixBranch(const QString& branchName) {
+    return branchName.startsWith("bugfix/", Qt::CaseInsensitive) ||
+           branchName.startsWith("bugfix-", Qt::CaseInsensitive) ||
+           branchName.startsWith("fix/", Qt::CaseInsensitive) ||
+           branchName.startsWith("fix-", Qt::CaseInsensitive);
+}
+
+// 显示MR创建成功对话框（提取为独立方法）
+void FeatureBranchView::showMrSuccessDialog(const MrResponse& mr) {
+    QString message = QString(
+        "<h3 style='color: green;'>✅ 合并请求创建成功！</h3>"
+        "<p><b>编号:</b> %1</p>"
+        "<p><b>标题:</b> %2</p>"
+        "<p><b>状态:</b> %3</p>"
+        "<p><b>链接:</b> ⬇️⬇️⬇️ <br>"
+        "<a href='%4'>%4</a></p>"
+        "<p style='color: #666; font-size: 11px;'>💡 点击链接在浏览器中查看合并请求详情</p>"
+    ).arg(mr.iid).arg(mr.title, mr.state, mr.webUrl);
+    
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(QString::fromUtf8("合并请求创建成功"));
+    msgBox.setTextFormat(Qt::RichText);
+    msgBox.setText(message);
+    msgBox.setIcon(QMessageBox::NoIcon);
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    msgBox.setMinimumWidth(255);
+    msgBox.setTextInteractionFlags(Qt::TextBrowserInteraction);
+    msgBox.exec();
+}
+
+// 异步检测冲突并提示用户同步
+void FeatureBranchView::checkAndPromptSync(
+    const QString& sourceBranch,
+    const QString& targetBranch,
+    const QString& originalTitle) {
+    
+    // 创建进度对话框
+    QProgressDialog* checkProgress = new QProgressDialog(
+        QString::fromUtf8("正在为同步修改检测冲突 ..."), 
+        QString(), 0, 0, this);
+    checkProgress->setWindowTitle(QString::fromUtf8("冲突检测"));
+    checkProgress->setMinimumWidth(255);
+    checkProgress->setWindowModality(Qt::WindowModal);
+    checkProgress->setCancelButton(nullptr);
+    checkProgress->show();
+    QApplication::processEvents();
+    
+    // 异步执行冲突检测
+    QFutureWatcher<CherryPickConflictResult>* watcher = 
+        new QFutureWatcher<CherryPickConflictResult>(this);
+    
+    connect(watcher, &QFutureWatcher<CherryPickConflictResult>::finished, 
+        this, [this, watcher, checkProgress, sourceBranch, targetBranch, originalTitle]() {
+        
+        CherryPickConflictResult result = watcher->result();
+        watcher->deleteLater();
+        checkProgress->close();
+        checkProgress->deleteLater();
+        
+        // 检测失败
+        if (!result.errorMessage.isEmpty()) {
+            QMessageBox::warning(this, QString::fromUtf8("检测失败"),
+                QString::fromUtf8("无法检测冲突：\n%1\n\n"
+                                  "是否仍要创建同步MR？")
+                    .arg(result.errorMessage));
+            // 用户可选择继续或放弃
+            return;
+        }
+        
+        // 根据检测结果提示用户
+        if (result.hasConflict) {
+            promptSyncWithConflict(sourceBranch, targetBranch, 
+                                  originalTitle, result.conflictFiles);
+        } else {
+            promptSyncNoConflict(sourceBranch, targetBranch, originalTitle);
+        }
+    });
+    
+    // 启动后台检测
+    QFuture<CherryPickConflictResult> future = QtConcurrent::run(
+        [this, sourceBranch, targetBranch]() {
+            return m_gitService->checkCherryPickConflict(sourceBranch, targetBranch);
+        });
+    
+    watcher->setFuture(future);
+}
+
+// 提示无冲突同步
+void FeatureBranchView::promptSyncNoConflict(
+    const QString& sourceBranch,
+    const QString& targetBranch,
+    const QString& originalTitle) {
+    
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(QString::fromUtf8("同步到另一分支？"));
+    msgBox.setIcon(QMessageBox::Question);
+    msgBox.setTextFormat(Qt::RichText);
+    msgBox.setText(QString::fromUtf8(
+        "✅ <b>未检测到冲突</b><br><br>"
+        "是否需要创建同步 MR 到 <b>%1</b> 分支？<br><br>"
+        "这可以确保两条主线的修复一致性。")
+        .arg(targetBranch));
+    
+    QPushButton* yesBtn = msgBox.addButton(
+        QString::fromUtf8("立即创建"), QMessageBox::YesRole);
+    msgBox.addButton(QString::fromUtf8("稍后手动"), QMessageBox::NoRole);
+    
+    msgBox.exec();
+    
+    if (msgBox.clickedButton() == yesBtn) {
+        createSyncMergeRequest(sourceBranch, targetBranch, originalTitle, false);
+    }
+}
+
+// 提示有冲突同步
+void FeatureBranchView::promptSyncWithConflict(
+    const QString& sourceBranch,
+    const QString& targetBranch,
+    const QString& originalTitle,
+    const QStringList& conflictFiles) {
+    
+    QString fileList = conflictFiles.join("\n• ");
+    
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(QString::fromUtf8("检测到潜在冲突"));
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setTextFormat(Qt::RichText);
+    msgBox.setText(QString::fromUtf8(
+        "⚠️ <b>检测到 Cherry-pick 冲突</b><br><br>"
+        "同步到 <b>%1</b> 时可能存在以下冲突文件：<br><br>"
+        "<span style='font-family:monospace;color:#d32f2f;'>• %2</span><br><br>"
+        "是否仍要创建同步 MR？<br>"
+        "<span style='color:#666;font-size:11px;'>"
+        "（合并时需要手动解决冲突）</span>")
+        .arg(targetBranch, fileList));
+    
+    QPushButton* yesBtn = msgBox.addButton(
+        QString::fromUtf8("仍要创建"), QMessageBox::YesRole);
+    msgBox.addButton(QString::fromUtf8("取消"), QMessageBox::NoRole);
+    
+    msgBox.exec();
+    
+    if (msgBox.clickedButton() == yesBtn) {
+        createSyncMergeRequest(sourceBranch, targetBranch, originalTitle, true);
+    }
+}
+
+// 创建同步MR（带冲突标记）
+void FeatureBranchView::createSyncMergeRequest(
+    const QString& sourceBranch,
+    const QString& targetBranch,
+    const QString& originalTitle,
+    bool hasConflict) {
+    
+    MrParams syncParams;
+    syncParams.sourceBranch = sourceBranch;
+    syncParams.targetBranch = targetBranch;
+    
+    // 标题带标记
+    if (hasConflict) {
+        syncParams.title = QString("[同步⚠️冲突] %1").arg(originalTitle);
+    } else {
+        syncParams.title = QString("[同步] %1").arg(originalTitle);
+    }
+    
+    // 描述包含冲突信息
+    QString oppositeBranch = (targetBranch == "develop") ? "internal" : "develop";
+    syncParams.description = QString::fromUtf8(
+        "🔄 这是从另一分支同步的 bugfix\n\n"
+        "原始 MR 已合并到 %1\n"
+        "此 MR 用于保持分支一致性\n\n")
+        .arg(oppositeBranch);
+    
+    if (hasConflict) {
+        syncParams.description += QString::fromUtf8(
+            "⚠️ **注意**：检测到潜在冲突\n"
+            "合并时可能需要手动解决\n");
+    }
+    
+    syncParams.removeSourceBranch = false;
+    syncParams.squash = false;
+    
+    // 创建进度条
+    QProgressDialog* syncProgress = new QProgressDialog(
+        QString::fromUtf8("正在创建同步合并请求..."), 
+        QString(), 0, 0, this);
+    syncProgress->setWindowTitle(QString::fromUtf8("提交中"));
+    syncProgress->setMinimumWidth(255);
+    syncProgress->setWindowModality(Qt::WindowModal);
+    syncProgress->setCancelButton(nullptr);
+    syncProgress->show();
+    QApplication::processEvents();
+    
+    // 连接API信号
+    connect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, 
+        [this, syncProgress](const MrResponse& mr) {
+            syncProgress->close();
+            syncProgress->deleteLater();
+            
+            QMessageBox::information(this, QString::fromUtf8("同步MR创建成功"),
+                QString::fromUtf8("同步合并请求已创建！\n\n"
+                                  "编号: #%1\n"
+                                  "链接: %2")
+                    .arg(mr.iid).arg(mr.webUrl));
+            
+            disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
+            disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
+        });
+    
+    connect(m_gitLabApi, &GitLabApi::apiError, this,
+        [this, syncProgress](const QString& endpoint, const QString& errorMessage) {
+            syncProgress->close();
+            syncProgress->deleteLater();
+            
+            QMessageBox::warning(this, QString::fromUtf8("创建失败"),
+                QString::fromUtf8("同步MR创建失败：\n%1").arg(errorMessage));
+            
+            disconnect(m_gitLabApi, &GitLabApi::mergeRequestCreated, this, nullptr);
+            disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
+        });
+    
+    // 发起API调用
+    m_gitLabApi->createMergeRequest(syncParams);
 }
