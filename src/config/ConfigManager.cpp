@@ -11,7 +11,7 @@ ConfigManager::ConfigManager() {
     // QSettings会自动使用组织名和应用名创建配置文件
     // 需要在main.cpp中设置QCoreApplication::setOrganizationName/setApplicationName
     m_settings = new QSettings(QSettings::IniFormat, QSettings::UserScope,
-                               "GitGuiTeam", "GitGuiClient");
+                               "GitPilot", "GitPilot");
 }
 
 ConfigManager::~ConfigManager() {
@@ -143,7 +143,7 @@ void ConfigManager::setLoggingEnabled(bool enabled) {
 
 QString ConfigManager::encryptToken(const QString& token) {
     // 简单的XOR加密（仅用于防止明文存储，不是强加密）
-    const QByteArray key = "GitGuiEncKey"; // 密钥
+    const QByteArray key = "GitPilotEncKey"; // 密钥
     QByteArray data = token.toUtf8();
     QByteArray encrypted;
     
@@ -160,7 +160,7 @@ QString ConfigManager::decryptToken(const QString& encrypted) {
     QByteArray data = QByteArray::fromBase64(encrypted.toUtf8());
     
     // XOR解密
-    const QByteArray key = "GitGuiEncKey";
+    const QByteArray key = "GitPilotEncKey";
     QByteArray decrypted;
     
     for (int i = 0; i < data.size(); ++i) {

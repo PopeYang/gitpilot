@@ -20,7 +20,7 @@ public:
         QVBoxLayout* layout = new QVBoxLayout(this);
         
         QLabel* label = new QLabel(QString::fromUtf8(
-            "Git客户端 - 防呆式GitLab工作流工具\n\n"
+            "GitPilot 客户端 - GitLab自动化工具\n\n"
             "本工具旨在简化GitLab CI/CD流程。\n\n"
             "点击下一步开始配置..."), this);
         

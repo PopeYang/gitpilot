@@ -16,4 +16,4 @@ cmake .. -DCMAKE_PREFIX_PATH="$QtPath" -G "Visual Studio 17 2022" -A x64
 # 编译
 cmake --build . --config Release
 
-Write-Host "构建完成！可执行文件: build\Release\gitgui.exe" -ForegroundColor Green
+Write-Host "构建完成！可执行文件: build\Release\gitpilot.exe" -ForegroundColor Green

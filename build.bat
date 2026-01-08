@@ -26,7 +26,7 @@ echo ========================================
 echo   编译成功！
 echo ========================================
 echo.
-echo 可执行文件: build\Release\gitgui.exe
+echo 可执行文件: build\Release\gitpilot.exe
 echo.
 goto end
 

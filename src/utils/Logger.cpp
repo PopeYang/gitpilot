@@ -10,11 +10,11 @@ Logger& Logger::instance() {
 }
 
 Logger::Logger() {
-    // 日志文件路径：应用数据目录/logs/gitgui.log
+    // 日志文件路径：应用数据目录/logs/gitpilot.log
     QString logDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/logs";
     QDir().mkpath(logDir);
     
-    QString logPath = logDir + "/gitgui.log";
+    QString logPath = logDir + "/gitpilot.log";
     m_logFile.setFileName(logPath);
     
     // 以追加模式打开

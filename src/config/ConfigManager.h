@@ -8,7 +8,7 @@
 /**
  * @brief 配置管理器 - 单例模式
  * 使用QSettings持久化配置到用户目录
- * Windows: C:\Users\<用户名>\AppData\Roaming\GitGuiTeam\GitGuiClient.ini
+ * Windows: C:\Users\<用户名>\AppData\Roaming\GitPilot\GitPilot.ini
  */
 class ConfigManager {
 public:

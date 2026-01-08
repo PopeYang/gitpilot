@@ -7,7 +7,7 @@ $BuildType = "Release"
 $ProjectRoot = $PSScriptRoot
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Git客户端 - 自动构建" -ForegroundColor Cyan
+Write-Host "  GitPilot 客户端 - 自动构建" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -91,11 +91,11 @@ Write-Host "  ✓ 编译成功！" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "可执行文件位置:" -ForegroundColor Cyan
-Write-Host "  $BuildDir\$BuildType\gitgui.exe" -ForegroundColor White
+Write-Host "  $BuildDir\$BuildType\gitpilot.exe" -ForegroundColor White
 Write-Host ""
 Write-Host "运行程序:" -ForegroundColor Cyan
 Write-Host "  cd build\$BuildType" -ForegroundColor White
-Write-Host "  .\gitgui.exe" -ForegroundColor White
+Write-Host "  .\gitpilot.exe" -ForegroundColor White
 Write-Host ""
 
 # 询问是否立即运行
@@ -106,7 +106,7 @@ if ($run -eq 'y' -or $run -eq 'Y') {
     # 添加Qt DLL到PATH（运行时需要）
     $env:Path = "$QtPath\bin;" + $env:Path
     
-    Start-Process "gitgui.exe"
+    Start-Process "gitpilot.exe"
     Write-Host "  ✓ 程序已启动" -ForegroundColor Green
 }
 

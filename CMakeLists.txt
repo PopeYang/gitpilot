@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(GitGuiClient VERSION 1.0 LANGUAGES CXX)
+project(GitPilot VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -67,10 +67,10 @@ set(HEADERS
 )
 
 # 创建可执行文件
-add_executable(gitgui ${SOURCES} ${HEADERS})
+add_executable(gitpilot ${SOURCES} ${HEADERS})
 
 # 链接Qt库
-target_link_libraries(gitgui PRIVATE
+target_link_libraries(gitpilot PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -79,18 +79,18 @@ target_link_libraries(gitgui PRIVATE
 )
 
 # 设置包含目录
-target_include_directories(gitgui PRIVATE
+target_include_directories(gitpilot PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Windows特定设置
 if(WIN32)
-    set_target_properties(gitgui PROPERTIES
+    set_target_properties(gitpilot PROPERTIES
         WIN32_EXECUTABLE ON
     )
 endif()
 
 # 安装规则
-install(TARGETS gitgui
+install(TARGETS gitpilot
     RUNTIME DESTINATION bin
 )

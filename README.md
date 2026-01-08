@@ -1,4 +1,4 @@
-# Git客户端 - 防呆式GitLab工作流工具
+# GitPilot - 智能 GitLab 工作流助手 ✈️
 
 > GitLab Workflow Automation Tool：简化GitLab CI/CD流程的智能Git客户端
 
@@ -45,7 +45,7 @@
 ### 1. 克隆项目
 ```bash
 git clone <repository-url>
-cd gitgui
+cd gitpilot
 ```
 
 ### 2. 构建项目
@@ -58,7 +58,7 @@ cmake --build . --config Release
 
 ### 3. 运行程序
 ```bash
-.\Release\gitgui.exe
+.\Release\gitpilot.exe
 ```
 
 首次运行会启动配置向导，引导您：
@@ -72,7 +72,7 @@ cmake --build . --config Release
 
 1. 登录GitLab → 右上角头像 → **Settings**
 2. 左侧菜单 → **Access Tokens**
-3. 填写Token名称（如"GitGuiClient"）
+3. 填写Token名称（如"gitpilotClient"）
 4. 勾选权限：
    - ✅ `api`
    - ✅ `read_api`
@@ -124,7 +124,7 @@ cmake --build . --config Release
 ## 📁 项目结构
 
 ```
-gitgui/
+gitpilot/
 ├── src/
 │   ├── ui/               # 用户界面
 │   │   ├── MainWindow.*
@@ -157,7 +157,7 @@ gitgui/
 
 ## 🔧 配置文件位置
 
-Windows: `C:\Users\<用户名>\AppData\Roaming\GitGuiTeam\GitGuiClient.ini`
+Windows: `C:\Users\<用户名>\AppData\Roaming\gitpilotTeam\gitpilotClient.ini`
 
 ## 📝 开发日志
 

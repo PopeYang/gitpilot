@@ -8,8 +8,8 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     
     // 设置应用程序信息（用于QSettings）
-    QCoreApplication::setOrganizationName("GitGuiTeam");
-    QCoreApplication::setApplicationName("GitGuiClient");
+    QCoreApplication::setOrganizationName("GitPilot");
+    QCoreApplication::setApplicationName("GitPilot");
     QCoreApplication::setApplicationVersion("1.0.0");
     
     // 设置应用程序样式（可选）
@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
            config.getRepoPath().isEmpty()) {
         
         FirstRunWizard wizard;
-        wizard.setWindowTitle("配置向导 - Git客户端");
+        wizard.setWindowTitle("配置向导 - GitPilot客户端");
         
         if (wizard.exec() == QDialog::Rejected) {
             // 用户取消配置，询问是否退出
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     
     // 加载主窗口
     MainWindow mainWindow;
-    mainWindow.setWindowTitle("Git客户端 - " + config.getCurrentProjectName());
+    mainWindow.setWindowTitle("Git Pilot 客户端 - " + config.getCurrentProjectName());
     mainWindow.show();
     
     return app.exec();

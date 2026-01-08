@@ -118,7 +118,7 @@ void MainWindow::createMenuBar() {
     QAction* aboutAction = helpMenu->addAction("关于(&A)");
     connect(aboutAction, &QAction::triggered, [this]() {
         QMessageBox::about(this, "关于", 
-            "Git客户端 v1.0\n\n"
+            "Git Pilot 客户端 v1.0\n\n"
             "GitLab Workflow Automation Tool");
     });
 }
@@ -165,22 +165,22 @@ void MainWindow::switchToAppropriateView(const QString& branchName) {
     if (branchName == "main" || branchName == "master") {
         // 🔴 主分支只读视图
         m_stackedWidget->setCurrentWidget(m_mainBranchView);
-        setWindowTitle(QString("Git客户端 - 🔴 %1 (只读)").arg(branchName));
+        setWindowTitle(QString("GitPilot客户端 - 🔴 %1 (主干分支)").arg(branchName));
     }
     else if (protectedBranches.contains(branchName)) {
         // 🔒 保护分支同步视图
         m_stackedWidget->setCurrentWidget(m_protectedBranchView);
-        setWindowTitle(QString("Git客户端 - 🔒 %1 (受保护)").arg(branchName));
+        setWindowTitle(QString("GitPilot客户端 - 🔒 %1 (集成分支)").arg(branchName));
     }
     else if (branchName == databaseBranch) {
         // 🟣 数据库分支受限视图
         m_stackedWidget->setCurrentWidget(m_databaseBranchView);
-        setWindowTitle(QString("Git客户端 - 🟣 %1 (数据库专用)").arg(branchName));
+        setWindowTitle(QString("GitPilot客户端 - 🟣 %1 (数据库版本升级专用分支)").arg(branchName));
     }
     else {
         // 🟢 开发分支活跃视图
         m_stackedWidget->setCurrentWidget(m_featureBranchView);
-        setWindowTitle(QString("Git客户端 - 🟢 %1 (开发中)").arg(branchName));
+        setWindowTitle(QString("GitPilot客户端 - 🟢 %1 (工作分支)").arg(branchName));
     }
     
     m_branchButton->setText(QString::fromUtf8("🌿 %1").arg(branchName));
