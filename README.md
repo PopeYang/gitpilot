@@ -1,9 +1,8 @@
 # GitPilot - 智能 GitLab 工作流助手 ✈️
 
-<!-- 请将 yourname/gitpilot 替换为您的实际 GitHub 仓库路径 -->
-[![Build Status](https://github.com/yourname/gitpilot/actions/workflows/build-release.yml/badge.svg)](https://github.com/yourname/gitpilot/actions/workflows/build-release.yml)
-[![Latest Release](https://img.shields.io/github/v/release/yourname/gitpilot)](https://github.com/yourname/gitpilot/releases/latest)
-[![License](https://img.shields.io/github/license/yourname/gitpilot)](LICENSE)
+[![Build Status](https://github.com/PopeYang/gitpilot/actions/workflows/build-release.yml/badge.svg)](https://github.com/PopeYang/gitpilot/actions/workflows/build-release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/PopeYang/gitpilot)](https://github.com/PopeYang/gitpilot/releases/latest)
+[![License](https://img.shields.io/github/license/PopeYang/gitpilot)](LICENSE)
 
 > GitLab Workflow Automation Tool：简化GitLab CI/CD流程的智能Git客户端
 
