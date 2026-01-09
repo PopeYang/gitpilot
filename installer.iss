@@ -12,6 +12,7 @@
 AppId={{A5B4C3D2-E1F0-4A5B-8C9D-0E1F2A3B4C5D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+SetupIconFile=src\resources\app_icon.ico
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}

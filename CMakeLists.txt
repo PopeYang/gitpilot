@@ -42,6 +42,8 @@ set(SOURCES
     src/automation/BuildMonitor.cpp
     src/config/ConfigManager.cpp
     src/utils/Logger.cpp
+    src/resources/gitpilot.rc
+    src/resources/resources.qrc
 )
 
 # 头文件

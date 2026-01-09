@@ -11,6 +11,7 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setOrganizationName("GitPilot");
     QCoreApplication::setApplicationName("GitPilot");
     QCoreApplication::setApplicationVersion("1.0.0");
+    app.setWindowIcon(QIcon(":/app_icon.png"));
     
     // 设置应用程序样式（可选）
     QApplication::setStyle("Fusion");

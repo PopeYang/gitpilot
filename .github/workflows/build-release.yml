@@ -78,9 +78,7 @@ jobs:
       # 8. 复制文档
       - name: Copy Documentation
         run: |
-          Copy-Item README.md deploy\
-          Copy-Item 使用指南.md deploy\
-          Copy-Item 打包分发指南.md deploy\ -ErrorAction SilentlyContinue
+          Copy-Item README.md deploy\ -ErrorAction SilentlyContinue
       
       # 9. 创建绿色版 ZIP
       - name: Create Portable ZIP
