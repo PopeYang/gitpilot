@@ -91,9 +91,9 @@ jobs:
       # 10. 下载 Inno Setup（用于制作安装包）
       - name: Download Inno Setup
         run: |
-          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "innosetup.exe"
-          Start-Process -FilePath "innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
-      
+          choco install innosetup --no-progress
+          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
+
       # 11. 更新安装脚本版本号
       - name: Update Installer Version
         run: |
@@ -101,8 +101,14 @@ jobs:
           if ([string]::IsNullOrEmpty($version)) {
             $version = "0.0.0-dev"
           }
-          (Get-Content installer.iss) -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`"" | Set-Content installer.iss
-      
+          echo "Current Version: $version"
+          
+          # 读取并替换，显式指定 UTF8 编码
+          (Get-Content installer.iss -Encoding UTF8) -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`"" | Set-Content installer.iss -Encoding UTF8
+          
+          #来验证版本号修改
+          Select-String -Path installer.iss -Pattern "#define MyAppVersion"
+
       # 12. 编译安装包
       - name: Build Installer
         run: |
