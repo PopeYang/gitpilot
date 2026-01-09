@@ -51,5 +51,4 @@ installer_output/
 *.zip
 package.ps1
 make-installer.ps1
-installer.iss
 clean-git-history.ps1
