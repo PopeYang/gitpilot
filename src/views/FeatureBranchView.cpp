@@ -199,6 +199,11 @@ void FeatureBranchView::connectSignals() {
 void FeatureBranchView::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     // 视图显示时自动刷新
+    refreshView();
+}
+
+void FeatureBranchView::refreshView() {
+    // 刷新文件列表和MR区域（包括Welcome Zone样式）
     updateFileList();
     updateMrZone();
 }

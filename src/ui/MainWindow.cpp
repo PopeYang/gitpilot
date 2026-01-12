@@ -180,6 +180,8 @@ void MainWindow::switchToAppropriateView(const QString& branchName) {
     else {
         // 🟢 开发分支活跃视图
         m_stackedWidget->setCurrentWidget(m_featureBranchView);
+        // 刷新视图以更新UI（特别是欢迎区域的样式）
+        m_featureBranchView->refreshView();
         setWindowTitle(QString("GitPilot客户端 - 🟢 %1 (工作分支)").arg(branchName));
     }
     

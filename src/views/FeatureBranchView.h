@@ -20,6 +20,9 @@ class FeatureBranchView : public QWidget {
 public:
     explicit FeatureBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent = nullptr);
     
+    // 公共刷新方法 - 用于分支切换时刷新UI
+    void refreshView();
+    
 protected:
     void showEvent(QShowEvent* event) override;
     
