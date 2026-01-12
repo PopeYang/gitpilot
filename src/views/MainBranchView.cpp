@@ -1,6 +1,7 @@
 #include "MainBranchView.h"
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
+#include "widgets/PipelineTriggerDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -251,13 +252,23 @@ void MainBranchView::onPullClicked() {
 }
 
 void MainBranchView::onTriggerBuildClicked() {
-    QString currentBranch = m_gitService->getCurrentBranch();
+    // 1. 弹出分支选择对话框
+    PipelineTriggerDialog dialog(m_gitService, this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
     
+    QString selectedBranch = dialog.getSelectedBranch();
+    if (selectedBranch.isEmpty()) {
+        return;
+    }
+    
+    // 2. 确认触发
     int ret = QMessageBox::question(
         this,
         QString::fromUtf8("确认触发构建"),
         QString::fromUtf8("确认要触发 %1 分支的Pipeline构建？\n\n"
-                         "这将启动CI/CD流程。").arg(currentBranch),
+                         "这将启动CI/CD流程。").arg(selectedBranch),
         QMessageBox::Yes | QMessageBox::No
     );
     
@@ -265,7 +276,7 @@ void MainBranchView::onTriggerBuildClicked() {
         return;
     }
     
-    // 显示简短的进度提示
+    // 3. 显示简短的进度提示
     QProgressDialog* progress = new QProgressDialog(
         QString::fromUtf8("正在触发Pipeline..."), 
         QString(), 0, 0, this);
@@ -278,7 +289,7 @@ void MainBranchView::onTriggerBuildClicked() {
     progress->show();
     QApplication::processEvents();
     
-    // 连接错误信号 - 只在失败时提示
+    // 4. 连接错误信号 - 只在失败时提示
     connect(m_gitLabApi, &GitLabApi::apiError, this,
         [this](const QString& endpoint, const QString& errorMessage) {
             if (endpoint.contains("pipeline")) {
@@ -289,14 +300,14 @@ void MainBranchView::onTriggerBuildClicked() {
             }
         });
     
-    // 触发API调用
-    m_gitLabApi->triggerPipeline(currentBranch);
+    // 5. 触发API调用
+    m_gitLabApi->triggerPipeline(selectedBranch);
     
-    // 立即关闭进度条，因为下方列表会自动刷新显示状态
+    // 6. 立即关闭进度条，因为下方列表会自动刷新显示状态
     progress->close();
     progress->deleteLater();
     
-    // 立即刷新Pipeline列表以显示新触发的Pipeline
+    // 7. 立即刷新Pipeline列表以显示新触发的Pipeline
     QTimer::singleShot(1000, this, &MainBranchView::refreshPipelines);
 }
 
