@@ -165,7 +165,12 @@ void MainBranchView::setupUi() {
     m_pipelineTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     m_pipelineTreeWidget->setSelectionMode(QAbstractItemView::SingleSelection);
     m_pipelineTreeWidget->setRootIsDecorated(false);
-    m_pipelineTreeWidget->setMinimumHeight(200);
+    m_pipelineTreeWidget->setMinimumHeight(210);
+    
+    // Set font size
+    QFont plFont = m_pipelineTreeWidget->font();
+    plFont.setPointSize(12);
+    m_pipelineTreeWidget->setFont(plFont);
     
     QStringList headerLabels;
     headerLabels << "ID" << "状态" << "分支" << "时间";
@@ -173,7 +178,8 @@ void MainBranchView::setupUi() {
     
     // Column resizing
     QHeaderView* header = m_pipelineTreeWidget->header();
-    header->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(0, QHeaderView::Fixed);
+    header->resizeSection(0, 60);
     header->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     header->setSectionResizeMode(2, QHeaderView::Stretch);
     header->setSectionResizeMode(3, QHeaderView::ResizeToContents);
@@ -408,8 +414,9 @@ void MainBranchView::onSwitchBranchClicked() {
 }
 
 void MainBranchView::refreshPipelines() {
-    QString currentBranch = m_gitService->getCurrentBranch();
-    m_gitLabApi->listPipelines(currentBranch);
+    // 不传递分支参数，显示所有分支的最新 Pipeline
+    // 这样无论触发哪个分支的构建，都能在列表中看到
+    m_gitLabApi->listPipelines();
 }
 
 void MainBranchView::onPipelinesReceived(const QList<PipelineStatus>& pipelines) {
