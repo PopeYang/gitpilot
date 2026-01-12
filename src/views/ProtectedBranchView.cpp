@@ -19,6 +19,9 @@
 #include <QFutureWatcher>
 #include <QListWidget>
 #include <QTimer>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QMenu>
 
 ProtectedBranchView::ProtectedBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent) 
     : QWidget(parent)
@@ -136,8 +139,34 @@ void ProtectedBranchView::setupUi() {
     m_mrGroup = new QGroupBox(QString::fromUtf8("📋 待合并的MR (Pending)"), this);
     QVBoxLayout* mrLayout = new QVBoxLayout(m_mrGroup);
     
+    // 添加刷新按钮
+    QHBoxLayout* mrHeaderLayout = new QHBoxLayout();
+    QLabel* mrHint = new QLabel(QString::fromUtf8("双击MR条目可在浏览器中打开"), this);
+    mrHint->setStyleSheet("color: #666; font-size: 11px;");
+    mrHeaderLayout->addWidget(mrHint);
+    mrHeaderLayout->addStretch();
+    
+    m_mrRefreshButton = new QPushButton(QString::fromUtf8("🔄 刷新"), this);
+    m_mrRefreshButton->setMaximumWidth(80);
+    m_mrRefreshButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: white;"
+        "   color: #333;"
+        "   border: 1px solid #ccc;"
+        "   font-size: 11px;"
+        "   border-radius: 3px;"
+        "   padding: 4px 8px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #f5f5f5;"
+        "}"
+    );
+    mrHeaderLayout->addWidget(m_mrRefreshButton);
+    mrLayout->addLayout(mrHeaderLayout);
+    
     m_mrListWidget = new QListWidget(this);
     m_mrListWidget->setAlternatingRowColors(true);
+    m_mrListWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     mrLayout->addWidget(m_mrListWidget);
     
     mainLayout->addWidget(m_mrGroup);
@@ -161,6 +190,13 @@ void ProtectedBranchView::connectSignals() {
     
     // MR Signal
     connect(m_gitLabApi, &GitLabApi::mergeRequestsReceived, this, &ProtectedBranchView::onMergeRequestsReceived);
+    connect(m_gitLabApi, &GitLabApi::mergeRequestApproved, this, &ProtectedBranchView::onMrOperationCompleted);
+    connect(m_gitLabApi, &GitLabApi::mergeRequestMerged, this, &ProtectedBranchView::onMrOperationCompleted);
+    connect(m_gitLabApi, &GitLabApi::mergeRequestClosed, this, &ProtectedBranchView::onMrOperationCompleted);
+    connect(m_gitLabApi, &GitLabApi::apiError, this, &ProtectedBranchView::onMrOperationFailed);
+    connect(m_mrRefreshButton, &QPushButton::clicked, this, &ProtectedBranchView::refreshMrs);
+    connect(m_mrListWidget, &QListWidget::itemDoubleClicked, this, &ProtectedBranchView::onMrItemDoubleClicked);
+    connect(m_mrListWidget, &QListWidget::customContextMenuRequested, this, &ProtectedBranchView::onMrContextMenuRequested);
     
     connect(m_gitService, &GitService::operationStarted, this, &ProtectedBranchView::onOperationStarted);
     connect(m_gitService, &GitService::operationFinished, this, &ProtectedBranchView::onOperationFinished);
@@ -414,8 +450,114 @@ void ProtectedBranchView::onMergeRequestsReceived(const QList<MrResponse>& mrs) 
             QString display = QString("!%1: %2").arg(mr.iid).arg(mr.title);
             QListWidgetItem* item = new QListWidgetItem(display);
             item->setData(Qt::UserRole, mr.webUrl);
-            item->setToolTip(QString::fromUtf8("创建时间: %1\n状态: %2").arg(mr.createdAt, mr.state));
+            item->setData(Qt::UserRole + 1, mr.iid);  // Store MR IID for context menu
+            item->setToolTip(QString::fromUtf8("创建时间: %1\n状态: %2\n右键点击查看更多操作").arg(mr.createdAt, mr.state));
             m_mrListWidget->addItem(item);
         }
     }
+}
+
+void ProtectedBranchView::onMrItemDoubleClicked(QListWidgetItem* item) {
+    if (!item) return;
+    
+    QString url = item->data(Qt::UserRole).toString();
+    if (url.isEmpty()) {
+        return; // 空条目(如 "没有待处理的MR")
+    }
+    
+    // 使用系统默认浏览器打开URL
+    if (!QDesktopServices::openUrl(QUrl(url))) {
+        QMessageBox::warning(this, QString::fromUtf8("打开失败"),
+            QString::fromUtf8("无法打开浏览器。\n\nMR链接: %1").arg(url));
+    }
+}
+
+void ProtectedBranchView::onMrContextMenuRequested(const QPoint& pos) {
+    QListWidgetItem* item = m_mrListWidget->itemAt(pos);
+    if (!item) return;
+    
+    QString url = item->data(Qt::UserRole).toString();
+    if (url.isEmpty()) return; // 空条目
+    
+    // 从UserRole+1获取MR IID
+    m_selectedMrIid = item->data(Qt::UserRole + 1).toInt();
+    if (m_selectedMrIid == 0) return;
+    
+    QMenu contextMenu(this);
+    
+    QAction* approveAction = contextMenu.addAction(QString::fromUtf8("✅ 批准 (Approve)"));
+    QAction* mergeAction = contextMenu.addAction(QString::fromUtf8("🔀 合并 (Merge)"));
+    QAction* closeAction = contextMenu.addAction(QString::fromUtf8("❌ 关闭 (Close)"));
+    contextMenu.addSeparator();
+    QAction* openAction = contextMenu.addAction(QString::fromUtf8("🌐 在浏览器中打开"));
+    
+    connect(approveAction, &QAction::triggered, this, &ProtectedBranchView::onMrApproveClicked);
+    connect(mergeAction, &QAction::triggered, this, &ProtectedBranchView::onMrMergeClicked);
+    connect(closeAction, &QAction::triggered, this, &ProtectedBranchView::onMrCloseClicked);
+    connect(openAction, &QAction::triggered, [this, url]() {
+        QDesktopServices::openUrl(QUrl(url));
+    });
+    
+    contextMenu.exec(m_mrListWidget->mapToGlobal(pos));
+}
+
+void ProtectedBranchView::onMrApproveClicked() {
+    if (m_selectedMrIid == 0) return;
+    
+    m_gitLabApi->approveMergeRequest(m_selectedMrIid);
+    QMessageBox::information(this, QString::fromUtf8("批准MR"),
+        QString::fromUtf8("正在批准 MR !%1，请稍候...").arg(m_selectedMrIid));
+}
+
+void ProtectedBranchView::onMrMergeClicked() {
+    if (m_selectedMrIid == 0) return;
+    
+    int ret = QMessageBox::question(this, QString::fromUtf8("确认合并"),
+        QString::fromUtf8("确定要合并 MR !%1 吗？\n\n此操作将：\n"
+                         "• 将代码合并到目标分支\n"
+                         "• 自动删除源分支\n\n"
+                         "此操作不可撤销！").arg(m_selectedMrIid),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    
+    if (ret == QMessageBox::Yes) {
+        m_gitLabApi->mergeMergeRequest(m_selectedMrIid, true);
+        QMessageBox::information(this, QString::fromUtf8("合并MR"),
+            QString::fromUtf8("正在合并 MR !%1，请稍候...").arg(m_selectedMrIid));
+    }
+}
+
+void ProtectedBranchView::onMrCloseClicked() {
+    if (m_selectedMrIid == 0) return;
+    
+    int ret = QMessageBox::question(this, QString::fromUtf8("确认关闭"),
+        QString::fromUtf8("确定要关闭 MR !%1 而不合并吗？\n\n"
+                         "此操作将关闭MR，不会合并代码。\n\n"
+                         "是否继续？").arg(m_selectedMrIid),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    
+    if (ret == QMessageBox::Yes) {
+        m_gitLabApi->closeMergeRequest(m_selectedMrIid);
+        QMessageBox::information(this, QString::fromUtf8("关闭MR"),
+            QString::fromUtf8("正在关闭 MR !%1，请稍候...").arg(m_selectedMrIid));
+    }
+}
+
+void ProtectedBranchView::onMrOperationCompleted(const MrResponse& mr) {
+    QMessageBox::information(this, QString::fromUtf8("操作成功"),
+        QString::fromUtf8("MR !%1 操作完成！\n\n刷新列表以查看最新状态。").arg(mr.iid));
+    
+    // 自动刷新MR列表
+    refreshMrs();
+}
+
+void ProtectedBranchView::onMrOperationFailed(const QString& endpoint, const QString& error) {
+    // 只处理MR相关的错误
+    if (!endpoint.contains("MergeRequest") && !endpoint.contains("merge_request")) {
+        return;
+    }
+    
+    QMessageBox::warning(this, QString::fromUtf8("操作失败"),
+        QString::fromUtf8("MR操作失败：\n\n%1").arg(error));
 }

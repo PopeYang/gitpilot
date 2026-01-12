@@ -9,6 +9,7 @@ class GitLabApi;
 class QPushButton;
 class QLabel;
 class QListWidget;
+class QListWidgetItem;
 class QGroupBox;
 struct MrResponse;
 
@@ -29,6 +30,7 @@ private slots:
     void onSwitchBranchClicked();
     void onOperationStarted(const QString& operation);
     void onOperationFinished(const QString& operation, bool success);
+    void onMrItemDoubleClicked(QListWidgetItem* item);
     
 private:
     void setupUi();
@@ -44,10 +46,20 @@ private:
     
     QGroupBox* m_mrGroup;
     QListWidget* m_mrListWidget;
+    QPushButton* m_mrRefreshButton;
     
 private slots:
     void onMergeRequestsReceived(const QList<MrResponse>& mrs);
     void refreshMrs();
+    void onMrContextMenuRequested(const QPoint& pos);
+    void onMrApproveClicked();
+    void onMrMergeClicked();
+    void onMrCloseClicked();
+    void onMrOperationCompleted(const MrResponse& mr);
+    void onMrOperationFailed(const QString& endpoint, const QString& error);
+    
+private:
+    int m_selectedMrIid;
 };
 
 #endif // PROTECTEDBRANCHVIEW_H

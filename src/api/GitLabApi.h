@@ -33,6 +33,9 @@ public:
     void createMergeRequest(const MrParams& params);
     void getMergeRequest(int mrIid);
     void listMergeRequests(int page = 1, int perPage = 20, const QString& state = QString(), const QString& targetBranch = QString());
+    void approveMergeRequest(int mrIid);
+    void mergeMergeRequest(int mrIid, bool shouldRemoveSourceBranch = true);
+    void closeMergeRequest(int mrIid);
     
     // Pipeline API
     void triggerPipeline(const QString& ref);
@@ -51,6 +54,9 @@ signals:
     void mergeRequestCreated(const MrResponse& mr);
     void mergeRequestReceived(const MrResponse& mr);
     void mergeRequestsReceived(const QList<MrResponse>& mrs);
+    void mergeRequestApproved(const MrResponse& mr);
+    void mergeRequestMerged(const MrResponse& mr);
+    void mergeRequestClosed(const MrResponse& mr);
     void pipelineTriggered(const PipelineStatus& pipeline);
     void pipelineStatusReceived(const PipelineStatus& status);
     void pipelinesReceived(const QList<PipelineStatus>& pipelines);

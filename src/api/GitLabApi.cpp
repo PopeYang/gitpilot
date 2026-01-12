@@ -32,6 +32,7 @@ void GitLabApi::setApiToken(const QString& token) {
 
 void GitLabApi::setProjectId(const QString& projectId) {
     m_projectId = projectId;
+    LOG_INFO(QString("设置Project ID: '%1'").arg(projectId));
 }
 
 // ========== 用户API ==========
@@ -87,14 +88,21 @@ void GitLabApi::createMergeRequest(const MrParams& params) {
 }
 
 void GitLabApi::getMergeRequest(int mrIid) {
-    QString endpoint = QString("/api/v4/projects/%1/merge_requests/%2")
-                      .arg(m_projectId).arg(mrIid);
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + "/merge_requests/" + QString::number(mrIid);
     sendGetRequest(endpoint, "getMergeRequest");
 }
 
 void GitLabApi::listMergeRequests(int page, int perPage, const QString& state, const QString& targetBranch) {
-    QString endpoint = QString("/api/v4/projects/%1/merge_requests?page=%2&per_page=%3")
-                      .arg(m_projectId).arg(page).arg(perPage);
+    LOG_INFO(QString("API调用: 列出MR, page=%1, perPage=%2, state=%3, targetBranch=%4")
+             .arg(page).arg(perPage).arg(state.isEmpty() ? "all" : state).arg(targetBranch.isEmpty() ? "all" : targetBranch));
+    
+    LOG_INFO(QString("Project ID: '%1' (isEmpty=%2)").arg(m_projectId).arg(m_projectId.isEmpty() ? "YES" : "NO"));
+    
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + 
+                       "/merge_requests?page=" + QString::number(page) + 
+                       "&per_page=" + QString::number(perPage);
     
     if (!state.isEmpty()) {
         endpoint += QString("&state=%1").arg(state);
@@ -103,8 +111,73 @@ void GitLabApi::listMergeRequests(int page, int perPage, const QString& state, c
     if (!targetBranch.isEmpty()) {
         endpoint += QString("&target_branch=%1").arg(targetBranch);
     }
+    
+    LOG_INFO(QString("List MRs endpoint: %1").arg(endpoint));
+    LOG_INFO(QString("Base URL: %1").arg(m_baseUrl));
                       
     sendGetRequest(endpoint, "listMergeRequests");
+}
+
+void GitLabApi::approveMergeRequest(int mrIid) {
+    LOG_INFO(QString("API调用: 批准MR !%1").arg(mrIid));
+    
+    if (m_projectId.isEmpty()) {
+        LOG_ERROR("项目ID未设置，无法批准MR");
+        emit apiError("approveMergeRequest", QString::fromUtf8("项目ID未设置"));
+        return;
+    }
+    
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + 
+                       "/merge_requests/" + QString::number(mrIid) + "/approve";
+    
+    LOG_INFO(QString("Approve endpoint: %1").arg(endpoint));
+    LOG_INFO(QString("Project ID: %1, Encoded: %2").arg(m_projectId, encodedProjectId));
+    
+    QJsonObject json; // Empty body for approve
+    sendPostRequest(endpoint, json, QString("approveMergeRequest:%1").arg(mrIid));
+}
+
+void GitLabApi::mergeMergeRequest(int mrIid, bool shouldRemoveSourceBranch) {
+    LOG_INFO(QString("API调用: 合并MR !%1").arg(mrIid));
+    
+    if (m_projectId.isEmpty()) {
+        LOG_ERROR("项目ID未设置，无法合并MR");
+        emit apiError("mergeMergeRequest", QString::fromUtf8("项目ID未设置"));
+        return;
+    }
+    
+    QJsonObject json;
+    json["should_remove_source_branch"] = shouldRemoveSourceBranch;
+    
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + 
+                       "/merge_requests/" + QString::number(mrIid) + "/merge";
+    
+    LOG_INFO(QString("Merge endpoint: %1").arg(endpoint));
+    
+    sendPutRequest(endpoint, json, QString("mergeMergeRequest:%1").arg(mrIid));
+}
+
+void GitLabApi::closeMergeRequest(int mrIid) {
+    LOG_INFO(QString("API调用: 关闭MR !%1").arg(mrIid));
+    
+    if (m_projectId.isEmpty()) {
+        LOG_ERROR("项目ID未设置，无法关闭MR");
+        emit apiError("closeMergeRequest", QString::fromUtf8("项目ID未设置"));
+        return;
+    }
+    
+    QJsonObject json;
+    json["state_event"] = "close";
+    
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + 
+                       "/merge_requests/" + QString::number(mrIid);
+    
+    LOG_INFO(QString("Close endpoint: %1").arg(endpoint));
+    
+    sendPutRequest(endpoint, json, QString("closeMergeRequest:%1").arg(mrIid));
 }
 
 // ========== Pipeline API ==========
@@ -115,18 +188,20 @@ void GitLabApi::triggerPipeline(const QString& ref) {
     QJsonObject json;
     json["ref"] = ref;
     
-    QString endpoint = QString("/api/v4/projects/%1/pipeline").arg(m_projectId);
+    QString encodedProjectId = QString(QUrl::toPercentEncoding(m_projectId));
+    QString endpoint = QString("/api/v4/projects/%1/pipeline").arg(encodedProjectId);
     sendPostRequest(endpoint, json, "triggerPipeline");
 }
 
 void GitLabApi::getPipelineStatus(int pipelineId) {
-    QString endpoint = QString("/api/v4/projects/%1/pipelines/%2")
-                      .arg(m_projectId).arg(pipelineId);
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + "/pipelines/" + QString::number(pipelineId);
     sendGetRequest(endpoint, "getPipelineStatus");
 }
 
 void GitLabApi::listPipelines(const QString& ref) {
-    QString endpoint = QString("/api/v4/projects/%1/pipelines").arg(m_projectId);
+    QString encodedProjectId = QString(QUrl::toPercentEncoding(m_projectId));
+    QString endpoint = QString("/api/v4/projects/%1/pipelines").arg(encodedProjectId);
     if (!ref.isEmpty()) {
         endpoint += QString("?ref=%1").arg(ref);
     }
@@ -136,14 +211,14 @@ void GitLabApi::listPipelines(const QString& ref) {
 // ========== Job API ==========
 
 void GitLabApi::getJobLog(int jobId) {
-    QString endpoint = QString("/api/v4/projects/%1/jobs/%2/trace")
-                      .arg(m_projectId).arg(jobId);
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + "/jobs/" + QString::number(jobId) + "/trace";
     sendGetRequest(endpoint, QString("getJobLog:%1").arg(jobId));
 }
 
 void GitLabApi::getJobArtifacts(int jobId) {
-    QString endpoint = QString("/api/v4/projects/%1/jobs/%2/artifacts")
-                      .arg(m_projectId).arg(jobId);
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + "/jobs/" + QString::number(jobId) + "/artifacts";
     sendGetRequest(endpoint, QString("getJobArtifacts:%1").arg(jobId));
 }
 
@@ -283,6 +358,18 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
         }
         else if (callbackId == "listMergeRequests") {
             handleMergeRequestsResponse(doc.array());
+        }
+        else if (callbackId.startsWith("approveMergeRequest:")) {
+            handleMergeRequestResponse(doc.object(), false);
+            emit mergeRequestApproved(parseMergeRequest(doc.object()));
+        }
+        else if (callbackId.startsWith("mergeMergeRequest:")) {
+            handleMergeRequestResponse(doc.object(), false);
+            emit mergeRequestMerged(parseMergeRequest(doc.object()));
+        }
+        else if (callbackId.startsWith("closeMergeRequest:")) {
+            handleMergeRequestResponse(doc.object(), false);
+            emit mergeRequestClosed(parseMergeRequest(doc.object()));
         }
         else if (callbackId == "triggerPipeline" || callbackId == "getPipelineStatus") {
             handlePipelineResponse(doc.object(), (callbackId == "triggerPipeline"));
