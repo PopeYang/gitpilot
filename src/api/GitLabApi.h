@@ -41,6 +41,8 @@ public:
     void triggerPipeline(const QString& ref);
     void getPipelineStatus(int pipelineId);
     void listPipelines(const QString& ref = QString());
+    void retryPipeline(int pipelineId);
+    void cancelPipeline(int pipelineId);
     
     // Job API
     void getJobLog(int jobId);
@@ -60,6 +62,8 @@ signals:
     void pipelineTriggered(const PipelineStatus& pipeline);
     void pipelineStatusReceived(const PipelineStatus& status);
     void pipelinesReceived(const QList<PipelineStatus>& pipelines);
+    void pipelineRetried(const PipelineStatus& pipeline);
+    void pipelineCanceled(const PipelineStatus& pipeline);
     void jobLogReceived(int jobId, const QString& log);
     void jobArtifactsReceived(int jobId, const QList<BuildArtifact>& artifacts);
     

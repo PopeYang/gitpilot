@@ -208,6 +208,26 @@ void GitLabApi::listPipelines(const QString& ref) {
     sendGetRequest(endpoint, "listPipelines");
 }
 
+void GitLabApi::retryPipeline(int pipelineId) {
+    LOG_INFO(QString("API调用: 重试Pipeline #%1").arg(pipelineId));
+    
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + "/pipelines/" + QString::number(pipelineId) + "/retry";
+    
+    QJsonObject json; // Empty body
+    sendPostRequest(endpoint, json, QString("retryPipeline:%1").arg(pipelineId));
+}
+
+void GitLabApi::cancelPipeline(int pipelineId) {
+    LOG_INFO(QString("API调用: 取消Pipeline #%1").arg(pipelineId));
+    
+    QString encodedProjectId = QString(m_projectId).replace("/", "%2F");
+    QString endpoint = "/api/v4/projects/" + encodedProjectId + "/pipelines/" + QString::number(pipelineId) + "/cancel";
+    
+    QJsonObject json; // Empty body
+    sendPostRequest(endpoint, json, QString("cancelPipeline:%1").arg(pipelineId));
+}
+
 // ========== Job API ==========
 
 void GitLabApi::getJobLog(int jobId) {
@@ -376,6 +396,14 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
         }
         else if (callbackId == "listPipelines") {
             handlePipelinesResponse(doc.array());
+        }
+        else if (callbackId.startsWith("retryPipeline:")) {
+            handlePipelineResponse(doc.object(), false);
+            emit pipelineRetried(parsePipeline(doc.object()));
+        }
+        else if (callbackId.startsWith("cancelPipeline:")) {
+            handlePipelineResponse(doc.object(), false);
+            emit pipelineCanceled(parsePipeline(doc.object()));
         }
         else if (callbackId.startsWith("getJobLog:")) {
             int jobId = callbackId.split(':')[1].toInt();

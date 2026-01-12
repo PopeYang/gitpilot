@@ -13,7 +13,14 @@
 #include <QApplication>
 #include <QtConcurrent>
 #include <QFutureWatcher>
+#include <QFutureWatcher>
 #include <QTimer>
+#include <QTreeWidget>
+#include <QHeaderView>
+#include <QMenu>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QTimeZone>
 
 MainBranchView::MainBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent)
     : QWidget(parent)
@@ -22,6 +29,12 @@ MainBranchView::MainBranchView(GitService* gitService, GitLabApi* gitLabApi, QWi
 {
     setupUi();
     connectSignals();
+    
+    // Auto refresh timer
+    m_refreshTimer = new QTimer(this);
+    m_refreshTimer->setInterval(30000); // 30s auto refresh
+    connect(m_refreshTimer, &QTimer::timeout, this, &MainBranchView::refreshPipelines);
+    m_refreshTimer->start();
 }
 
 void MainBranchView::setupUi() {
@@ -127,6 +140,46 @@ void MainBranchView::setupUi() {
     actionLayout->addWidget(m_switchBranchButton);
     
     mainLayout->addWidget(actionGroup);
+    mainLayout->addWidget(actionGroup);
+
+    // Pipeline 列表区域
+    m_pipelineGroup = new QGroupBox(QString::fromUtf8("🚀 CI/CD Pipelines"), this);
+    QVBoxLayout* pipelineLayout = new QVBoxLayout(m_pipelineGroup);
+    
+    // Header
+    QHBoxLayout* plHeaderLayout = new QHBoxLayout();
+    QLabel* plHint = new QLabel(QString::fromUtf8("双击在浏览器中查看详情"), this);
+    plHint->setStyleSheet("color: #666; font-size: 11px;");
+    plHeaderLayout->addWidget(plHint);
+    plHeaderLayout->addStretch();
+    
+    m_refreshPipelinesButton = new QPushButton(QString::fromUtf8("🔄 刷新"), this);
+    m_refreshPipelinesButton->setMaximumWidth(80);
+    plHeaderLayout->addWidget(m_refreshPipelinesButton);
+    pipelineLayout->addLayout(plHeaderLayout);
+    
+    // Tree Widget
+    m_pipelineTreeWidget = new QTreeWidget(this);
+    m_pipelineTreeWidget->setAlternatingRowColors(true);
+    m_pipelineTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_pipelineTreeWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_pipelineTreeWidget->setRootIsDecorated(false);
+    m_pipelineTreeWidget->setMinimumHeight(200);
+    
+    QStringList headerLabels;
+    headerLabels << "ID" << "状态" << "分支" << "时间";
+    m_pipelineTreeWidget->setHeaderLabels(headerLabels);
+    
+    // Column resizing
+    QHeaderView* header = m_pipelineTreeWidget->header();
+    header->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(2, QHeaderView::Stretch);
+    header->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    
+    pipelineLayout->addWidget(m_pipelineTreeWidget);
+    mainLayout->addWidget(m_pipelineGroup);
+
     mainLayout->addStretch();
 }
 
@@ -134,6 +187,18 @@ void MainBranchView::connectSignals() {
     connect(m_pullButton, &QPushButton::clicked, this, &MainBranchView::onPullClicked);
     connect(m_triggerBuildButton, &QPushButton::clicked, this, &MainBranchView::onTriggerBuildClicked);
     connect(m_switchBranchButton, &QPushButton::clicked, this, &MainBranchView::onSwitchBranchClicked);
+    
+    connect(m_refreshPipelinesButton, &QPushButton::clicked, this, &MainBranchView::refreshPipelines);
+    connect(m_gitLabApi, &GitLabApi::pipelinesReceived, this, &MainBranchView::onPipelinesReceived);
+    connect(m_gitLabApi, &GitLabApi::pipelineTriggered, this, &MainBranchView::refreshPipelines); // Refresh after trigger
+    connect(m_gitLabApi, &GitLabApi::pipelineRetried, this, &MainBranchView::onPipelineOperationCompleted);
+    connect(m_gitLabApi, &GitLabApi::pipelineCanceled, this, &MainBranchView::onPipelineOperationCompleted);
+    
+    connect(m_pipelineTreeWidget, &QTreeWidget::customContextMenuRequested, this, &MainBranchView::onPipelineContextMenuRequested);
+    connect(m_pipelineTreeWidget, &QTreeWidget::itemDoubleClicked, [](QTreeWidgetItem* item, int column) {
+        QString url = item->data(0, Qt::UserRole).toString();
+        if(!url.isEmpty()) QDesktopServices::openUrl(QUrl(url));
+    });
 }
 
 void MainBranchView::onPullClicked() {
@@ -341,4 +406,113 @@ void MainBranchView::onSwitchBranchClicked() {
     });
     
     watcher->setFuture(future);
+}
+
+void MainBranchView::refreshPipelines() {
+    QString currentBranch = m_gitService->getCurrentBranch();
+    m_gitLabApi->listPipelines(currentBranch);
+}
+
+void MainBranchView::onPipelinesReceived(const QList<PipelineStatus>& pipelines) {
+    m_pipelineTreeWidget->clear();
+    
+    if (pipelines.isEmpty()) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(m_pipelineTreeWidget);
+        item->setText(2, QString::fromUtf8("无Pipeline记录"));
+    } else {
+        for (const PipelineStatus& p : pipelines) {
+            QTreeWidgetItem* item = new QTreeWidgetItem(m_pipelineTreeWidget);
+            item->setText(0, QString::number(p.id));
+            item->setText(1, p.status);
+            item->setText(2, p.ref);
+            
+             // 强制转换为UTC+8 (28800秒)
+            QTimeZone zone = QTimeZone::fromSecondsAheadOfUtc(28800);
+            QDateTime dt = p.createdAt.toTimeZone(zone);
+            item->setText(3, dt.toString("MM-dd HH:mm"));
+            
+            item->setData(0, Qt::UserRole, p.webUrl);
+            item->setData(0, Qt::UserRole + 1, p.id);
+            item->setData(0, Qt::UserRole + 2, p.status); // Store status for context menu logic
+            
+            // Status color
+            if (p.isSuccess()) item->setForeground(1, QBrush(QColor("#4CAF50"))); // Green
+            else if (p.isFailed()) item->setForeground(1, QBrush(QColor("#F44336"))); // Red
+            else if (p.isRunning()) item->setForeground(1, QBrush(QColor("#2196F3"))); // Blue
+            else if (p.isPending()) item->setForeground(1, QBrush(QColor("#FF9800"))); // Orange
+        }
+    }
+}
+
+void MainBranchView::onPipelineContextMenuRequested(const QPoint& pos) {
+    QTreeWidgetItem* item = m_pipelineTreeWidget->itemAt(pos);
+    if (!item) return;
+    
+    m_selectedPipelineId = item->data(0, Qt::UserRole + 1).toInt();
+    QString status = item->data(0, Qt::UserRole + 2).toString();
+    QString url = item->data(0, Qt::UserRole).toString();
+    
+    if (m_selectedPipelineId == 0) return;
+    
+    QMenu contextMenu(this);
+    
+    QAction* browserAction = contextMenu.addAction(QString::fromUtf8("🌐 在浏览器中打开"));
+    contextMenu.addSeparator();
+    
+    // Actions based on status
+    if (status == "failed" || status == "canceled" || status == "success") {
+        QAction* retryAction = contextMenu.addAction(QString::fromUtf8("🔄 重试 (Retry)"));
+        retryAction->setData("retry");
+        connect(retryAction, &QAction::triggered, this, &MainBranchView::onPipelineActionClicked);
+    }
+    
+    if (status == "running" || status == "pending") {
+        QAction* cancelAction = contextMenu.addAction(QString::fromUtf8("⏹️ 取消 (Cancel)"));
+        cancelAction->setData("cancel");
+        connect(cancelAction, &QAction::triggered, this, &MainBranchView::onPipelineActionClicked);
+    }
+    
+    connect(browserAction, &QAction::triggered, [url]() {
+        QDesktopServices::openUrl(QUrl(url));
+    });
+    
+    contextMenu.exec(m_pipelineTreeWidget->mapToGlobal(pos));
+}
+
+void MainBranchView::onPipelineActionClicked() {
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (!action) return;
+    
+    QString type = action->data().toString();
+    
+    if (type == "retry") {
+        int ret = QMessageBox::question(this, QString::fromUtf8("确认重试"),
+            QString::fromUtf8("确定要重试 Pipeline #%1 吗？").arg(m_selectedPipelineId),
+            QMessageBox::Yes | QMessageBox::No);
+            
+        if (ret == QMessageBox::Yes) {
+            m_gitLabApi->retryPipeline(m_selectedPipelineId);
+        }
+    } else if (type == "cancel") {
+        int ret = QMessageBox::question(this, QString::fromUtf8("确认取消"),
+            QString::fromUtf8("确定要取消 Pipeline #%1 吗？").arg(m_selectedPipelineId),
+            QMessageBox::Yes | QMessageBox::No);
+            
+        if (ret == QMessageBox::Yes) {
+            m_gitLabApi->cancelPipeline(m_selectedPipelineId);
+        }
+    }
+}
+
+void MainBranchView::onPipelineOperationCompleted(const PipelineStatus& pipeline) {
+    QString msg;
+    // Detect operation type by status or just generic success
+    if (pipeline.status == "pending" || pipeline.status == "running") msg = QString::fromUtf8("已重试 Pipeline");
+    else if (pipeline.status == "canceled") msg = QString::fromUtf8("已取消 Pipeline");
+    else msg = QString::fromUtf8("操作成功");
+    
+    QMessageBox::information(this, QString::fromUtf8("成功"),
+        QString("%1 #%2\n状态: %3").arg(msg).arg(pipeline.id).arg(pipeline.status));
+        
+    refreshPipelines();
 }

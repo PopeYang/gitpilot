@@ -6,8 +6,13 @@
 class GitService;
 class GitLabApi;
 class QListWidget;
+class QTreeWidget;
+class QTreeWidgetItem;
 class QPushButton;
 class QLabel;
+class QGroupBox;
+class QTimer;
+struct PipelineStatus;
 
 /**
  * @brief 主分支只读视图
@@ -26,6 +31,11 @@ private slots:
     void onPullClicked();
     void onTriggerBuildClicked();
     void onSwitchBranchClicked();
+    void refreshPipelines();
+    void onPipelinesReceived(const QList<PipelineStatus>& pipelines);
+    void onPipelineContextMenuRequested(const QPoint& pos);
+    void onPipelineActionClicked();
+    void onPipelineOperationCompleted(const PipelineStatus& pipeline);
     
 private:
     void setupUi();
@@ -38,6 +48,14 @@ private:
     QPushButton* m_triggerBuildButton;
     QPushButton* m_switchBranchButton;
     QLabel* m_warningLabel;
+    
+    // Pipeline List
+    QGroupBox* m_pipelineGroup;
+    QTreeWidget* m_pipelineTreeWidget;
+    QPushButton* m_refreshPipelinesButton;
+    QTimer* m_refreshTimer;
+    
+    int m_selectedPipelineId;
 };
 
 #endif
