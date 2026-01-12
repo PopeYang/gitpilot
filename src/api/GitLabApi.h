@@ -32,7 +32,7 @@ public:
     // MR API
     void createMergeRequest(const MrParams& params);
     void getMergeRequest(int mrIid);
-    void listMergeRequests(int page = 1, int perPage = 20);
+    void listMergeRequests(int page = 1, int perPage = 20, const QString& state = QString(), const QString& targetBranch = QString());
     
     // Pipeline API
     void triggerPipeline(const QString& ref);

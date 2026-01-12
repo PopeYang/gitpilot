@@ -101,10 +101,10 @@ void ProtectedBranchView::setupUi() {
         "   border-radius: 5px;"
         "}"
         "QPushButton:hover {"
-        "   background-color: #0b7dda;"
+        "   background-color: #1976D2;"
         "}"
         "QPushButton:pressed {"
-        "   background-color: #0a6bc2;"
+        "   background-color: #1565C0;"
         "}"
     );
     actionsLayout->addWidget(m_newBranchButton);
@@ -132,6 +132,16 @@ void ProtectedBranchView::setupUi() {
     
     mainLayout->addWidget(actionsGroup);
     
+    // MR 列表区域
+    m_mrGroup = new QGroupBox(QString::fromUtf8("📋 待合并的MR (Pending)"), this);
+    QVBoxLayout* mrLayout = new QVBoxLayout(m_mrGroup);
+    
+    m_mrListWidget = new QListWidget(this);
+    m_mrListWidget->setAlternatingRowColors(true);
+    mrLayout->addWidget(m_mrListWidget);
+    
+    mainLayout->addWidget(m_mrGroup);
+    
     // 状态标签
     m_statusLabel = new QLabel(QString::fromUtf8("就绪"), this);
     m_statusLabel->setAlignment(Qt::AlignCenter);
@@ -148,6 +158,9 @@ void ProtectedBranchView::connectSignals() {
     connect(m_pullButton, &QPushButton::clicked, this, &ProtectedBranchView::onPullClicked);
     connect(m_newBranchButton, &QPushButton::clicked, this, &ProtectedBranchView::onNewBranchClicked);
     connect(m_switchBranchButton, &QPushButton::clicked, this, &ProtectedBranchView::onSwitchBranchClicked);
+    
+    // MR Signal
+    connect(m_gitLabApi, &GitLabApi::mergeRequestsReceived, this, &ProtectedBranchView::onMergeRequestsReceived);
     
     connect(m_gitService, &GitService::operationStarted, this, &ProtectedBranchView::onOperationStarted);
     connect(m_gitService, &GitService::operationFinished, this, &ProtectedBranchView::onOperationFinished);
@@ -369,5 +382,40 @@ void ProtectedBranchView::onSwitchBranchClicked() {
             QMessageBox::warning(this, QString::fromUtf8("切换失败"),
                 QString::fromUtf8("切换到分支 %1 失败，请检查Git状态。").arg(selectedBranch));
         }
+        if (success) {
+            emit branchChanged();
+        } else {
+            QMessageBox::warning(this, QString::fromUtf8("切换失败"),
+                QString::fromUtf8("切换到分支 %1 失败，请检查Git状态。").arg(selectedBranch));
+        }
     });
+}
+
+void ProtectedBranchView::showEvent(QShowEvent* event) {
+    QWidget::showEvent(event);
+    refreshMrs();
+}
+
+void ProtectedBranchView::refreshMrs() {
+    QString currentBranch = m_gitService->getCurrentBranch();
+    setCursor(Qt::WaitCursor);
+    m_gitLabApi->listMergeRequests(1, 20, "opened", currentBranch);
+    setCursor(Qt::ArrowCursor);
+}
+
+void ProtectedBranchView::onMergeRequestsReceived(const QList<MrResponse>& mrs) {
+    m_mrListWidget->clear();
+    setCursor(Qt::ArrowCursor);
+    
+    if (mrs.isEmpty()) {
+        m_mrListWidget->addItem(QString::fromUtf8("✓ 没有待处理的MR"));
+    } else {
+        for (const MrResponse& mr : mrs) {
+            QString display = QString("!%1: %2").arg(mr.iid).arg(mr.title);
+            QListWidgetItem* item = new QListWidgetItem(display);
+            item->setData(Qt::UserRole, mr.webUrl);
+            item->setToolTip(QString::fromUtf8("创建时间: %1\n状态: %2").arg(mr.createdAt, mr.state));
+            m_mrListWidget->addItem(item);
+        }
+    }
 }

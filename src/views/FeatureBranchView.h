@@ -9,6 +9,8 @@ class GitLabApi;
 class MrZone;
 class QListWidget;
 class QPushButton;
+class QGroupBox;
+class QLabel;
 struct MrResponse;
 struct CherryPickConflictResult;
 
@@ -52,6 +54,9 @@ private:
     QPushButton* m_commitButton;
     QPushButton* m_pushButton;
     MrZone* m_mrZone;
+
+    QGroupBox* m_welcomeGroup;
+    QLabel* m_welcomeLabel;
 };
 
 #endif // FEATUREBRANCHVIEW_H

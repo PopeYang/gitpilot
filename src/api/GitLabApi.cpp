@@ -92,9 +92,18 @@ void GitLabApi::getMergeRequest(int mrIid) {
     sendGetRequest(endpoint, "getMergeRequest");
 }
 
-void GitLabApi::listMergeRequests(int page, int perPage) {
+void GitLabApi::listMergeRequests(int page, int perPage, const QString& state, const QString& targetBranch) {
     QString endpoint = QString("/api/v4/projects/%1/merge_requests?page=%2&per_page=%3")
                       .arg(m_projectId).arg(page).arg(perPage);
+    
+    if (!state.isEmpty()) {
+        endpoint += QString("&state=%1").arg(state);
+    }
+    
+    if (!targetBranch.isEmpty()) {
+        endpoint += QString("&target_branch=%1").arg(targetBranch);
+    }
+                      
     sendGetRequest(endpoint, "listMergeRequests");
 }
 

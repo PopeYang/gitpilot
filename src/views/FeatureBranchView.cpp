@@ -34,9 +34,9 @@ void FeatureBranchView::setupUi() {
     mainLayout->setSpacing(15);
     mainLayout->setContentsMargins(20, 20, 20, 20);
     
-    // 顶部友好提示区域 - 绿色主题
-    QGroupBox* welcomeGroup = new QGroupBox(QString::fromUtf8("🟢 开发分支 - 活跃工作区"), this);
-    welcomeGroup->setStyleSheet(
+    // 顶部友好提示区域 - 默认为开发分支样式 (绿色)
+    m_welcomeGroup = new QGroupBox(QString::fromUtf8("🟢 开发分支 - 活跃工作区"), this);
+    m_welcomeGroup->setStyleSheet(
         "QGroupBox {"
         "   background-color: #E8F5E9;"  // 浅绿色背景
         "   border: 1px solid #4CAF50;"  // 绿色边框
@@ -54,17 +54,17 @@ void FeatureBranchView::setupUi() {
         "}"
     );
     
-    QVBoxLayout* welcomeLayout = new QVBoxLayout(welcomeGroup);
-    QLabel* welcomeLabel = new QLabel(
+    QVBoxLayout* welcomeLayout = new QVBoxLayout(m_welcomeGroup);
+    m_welcomeLabel = new QLabel(
         QString::fromUtf8("• 尽情挥洒创意，代码改动无负担\n"
                          "• 随时本地提交，保护灵感的火花\n"
                          "• 困难及时求助，团队就在你身边"), 
         this);
-    welcomeLabel->setStyleSheet("color: #2E7D32; font-size: 13px; background: transparent; border: none;");
-    welcomeLabel->setWordWrap(true);
-    welcomeLayout->addWidget(welcomeLabel);
+    m_welcomeLabel->setStyleSheet("color: #2E7D32; font-size: 13px; background: transparent; border: none;");
+    m_welcomeLabel->setWordWrap(true);
+    welcomeLayout->addWidget(m_welcomeLabel);
     
-    mainLayout->addWidget(welcomeGroup);
+    mainLayout->addWidget(m_welcomeGroup);
     
     // 修改文件列表
     QGroupBox* filesGroup = new QGroupBox(QString::fromUtf8("📝 待提交的修改"), this);
@@ -220,6 +220,58 @@ void FeatureBranchView::updateFileList() {
 void FeatureBranchView::updateMrZone() {
     QString currentBranch = m_gitService->getCurrentBranch();
     m_mrZone->updateForBranch(currentBranch);
+    
+    // Update Welcome Zone Style
+    if (isBugfixBranch(currentBranch)) {
+         m_welcomeGroup->setTitle(QString::fromUtf8("🐞 修复分支 - 紧急修复模式"));
+         m_welcomeGroup->setStyleSheet(
+            "QGroupBox {"
+            "   background-color: #FFF3E0;"  // 淡橙色
+            "   border: 1px solid #FF9800;"  // 橙色边框
+            "   border-radius: 5px;"
+            "   margin-top: 10px;"
+            "   font-size: 14px;"
+            "   font-weight: bold;"
+            "   color: #E65100;"
+            "}"
+            "QGroupBox::title {"
+            "   subcontrol-origin: margin;"
+            "   subcontrol-position: top left;"
+            "   padding: 0 5px;"
+            "   left: 10px;"
+            "}"
+        );
+        m_welcomeLabel->setText(QString::fromUtf8(
+            "• 这是一个修复分支，请专注于解决特定Bug\n"
+            "• 提交后，GitPilot将自动协助同步到其他受影响的分支\n"
+            "• 保持改动最小化，降低冲突风险"));
+        m_welcomeLabel->setStyleSheet("color: #E65100; font-size: 13px; background: transparent; border: none;");
+    } else {
+        // Reset to Feature Style
+         m_welcomeGroup->setTitle(QString::fromUtf8("🟢 开发分支 - 活跃工作区"));
+         m_welcomeGroup->setStyleSheet(
+            "QGroupBox {"
+            "   background-color: #E8F5E9;"
+            "   border: 1px solid #4CAF50;" 
+            "   border-radius: 5px;"
+            "   margin-top: 10px;"
+            "   font-size: 14px;"
+            "   font-weight: bold;"
+            "   color: #2E7D32;"
+            "}"
+            "QGroupBox::title {"
+            "   subcontrol-origin: margin;"
+            "   subcontrol-position: top left;"
+            "   padding: 0 5px;"
+            "   left: 10px;"
+            "}"
+        );
+        m_welcomeLabel->setText(QString::fromUtf8(
+            "• 尽情挥洒创意，代码改动无负担\n"
+            "• 随时本地提交，保护灵感的火花\n"
+            "• 困难及时求助，团队就在你身边"));
+        m_welcomeLabel->setStyleSheet("color: #2E7D32; font-size: 13px; background: transparent; border: none;");
+    }
 }
 
 void FeatureBranchView::onRefreshClicked() {

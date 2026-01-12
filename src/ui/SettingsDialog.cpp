@@ -325,7 +325,6 @@ void SettingsDialog::onBrowseRepoPath() {
 }
 
 void SettingsDialog::onExtractFromGit() {
-    // 简单的实现：尝试读取.git/config
     QString repoPath = m_repoPathEdit->text().trimmed();
 
     if (repoPath.isEmpty()) {
@@ -334,16 +333,61 @@ void SettingsDialog::onExtractFromGit() {
         return;
     }
 
-    QDir dir(repoPath);
-    if (!dir.exists(".git")) {
+    // 使用临时GitService获取信息
+    GitService tempService(this);
+    tempService.setRepoPath(repoPath);
+    
+    if (!tempService.isValidRepo()) {
         QMessageBox::warning(this, QString::fromUtf8("错误"), 
-            QString::fromUtf8("该目录不是Git仓库根目录"));
+            QString::fromUtf8("该目录不是有效的Git仓库"));
         return;
     }
     
-    // 省略复杂的解析逻辑，这里假设用户手动填写
-    QMessageBox::information(this, QString::fromUtf8("提示"), 
-        QString::fromUtf8("自动提取功能待完善，目前仅支持验证仓库有效性"));
+    // 获取远程URL
+    QString remoteUrl = tempService.getRemoteUrl();
+    if (remoteUrl.isEmpty()) {
+        QMessageBox::warning(this, QString::fromUtf8("提示"), 
+            QString::fromUtf8("未找到远程仓库(origin)配置"));
+        return;
+    }
+    
+    // 自动填充远程URL
+    m_remoteUrlEdit->setText(remoteUrl);
+    
+    // 解析项目路径及Host
+    // 支持解析Host以自动填充服务器地址
+    // 捕获组1: Base URL (https://host 或 git@host)
+    // 捕获组2: Project Path (支持多级group/subgroup/project)
+    QRegularExpression regex(R"((https?://[^/]+|git@[^:]+)(?:/|:)(.+?)(?:\.git)?$)");
+    QRegularExpressionMatch match = regex.match(remoteUrl);
+
+    if (match.hasMatch()) {
+        QString baseUrl = match.captured(1);
+        QString projectPath = match.captured(2);
+        
+        // 如果是SSH格式 (git@domain.com), 尝试转换为HTTPS格式 (https://domain.com)
+        if (baseUrl.startsWith("git@")) {
+            baseUrl.replace("git@", "https://");
+        }
+
+        m_gitlabUrlEdit->setText(baseUrl);
+        m_projectPathEdit->setText(projectPath);
+
+        // 猜测项目名称 (取最后一段)
+        QString projectName = projectPath.split('/').last();
+        m_projectNameEdit->setText(projectName);
+
+        QMessageBox::information(this, QString::fromUtf8("提取成功"), 
+            QString::fromUtf8("成功提取项目信息：\n\n"
+                              "服务器地址: %1\n"
+                              "项目路径: %2\n"
+                              "项目名称: %3\n\n"
+                              "请检查是否准确，特别是Token需要手动填写。").arg(baseUrl, projectPath, projectName));
+    } else {
+        QMessageBox::warning(this, QString::fromUtf8("解析失败"), 
+            QString::fromUtf8("无法从URL中解析项目路径：\n%1\n\n"
+                              "请手动填写，或确保URL格式标准。").arg(remoteUrl));
+    }
 }
 
 #include <QSslSocket>
