@@ -88,7 +88,7 @@ void DatabaseBranchView::setupUi() {
     QHBoxLayout* fileButtonsLayout = new QHBoxLayout();
     
     m_refreshButton = new QPushButton(QString::fromUtf8("🔄 刷新状态"), this);
-    m_stageAllButton = new QPushButton(QString::fromUtf8("📋 全部暂存"), this);
+    m_commitButton = new QPushButton(QString::fromUtf8("📝 本地提交"), this);
     
     m_refreshButton->setStyleSheet(
         "QPushButton {"
@@ -105,36 +105,6 @@ void DatabaseBranchView::setupUi() {
         "}"
     );
     
-    m_stageAllButton->setStyleSheet(
-        "QPushButton {"
-        "   background-color: white;"
-        "   color: #333;"
-        "   border: 1px solid #ccc;"
-        "   font-size: 12px;"
-        "   font-weight: bold;"
-        "   border-radius: 4px;"
-        "   padding: 8px;"
-        "}"
-        "QPushButton:hover {"
-        "   background-color: #f5f5f5;"
-        "}"
-    );
-    
-    fileButtonsLayout->addWidget(m_refreshButton);
-    fileButtonsLayout->addWidget(m_stageAllButton);
-    filesLayout->addLayout(fileButtonsLayout);
-    
-    mainLayout->addWidget(filesGroup);
-    
-    // 提交操作区域
-    QGroupBox* commitGroup = new QGroupBox(QString::fromUtf8("📝 提交操作"), this);
-    commitGroup->setStyleSheet("QGroupBox { font-size: 13px; font-weight: bold; padding: 10px; }");
-    
-    QVBoxLayout* commitLayout = new QVBoxLayout(commitGroup);
-    
-    QHBoxLayout* commitButtonsLayout = new QHBoxLayout();
-    
-    m_commitButton = new QPushButton(QString::fromUtf8("📝 本地提交"), this);
     m_commitButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #2196F3;"
@@ -153,7 +123,41 @@ void DatabaseBranchView::setupUi() {
         "}"
     );
     
+    fileButtonsLayout->addWidget(m_refreshButton);
+    fileButtonsLayout->addWidget(m_commitButton);
+    filesLayout->addLayout(fileButtonsLayout);
+    
+    mainLayout->addWidget(filesGroup);
+    
+    // 远端交互区域
+    QGroupBox* remoteGroup = new QGroupBox(QString::fromUtf8("🔄 远端交互"), this);
+    remoteGroup->setStyleSheet("QGroupBox { font-size: 13px; font-weight: bold; padding: 10px; }");
+    
+    QVBoxLayout* remoteLayout = new QVBoxLayout(remoteGroup);
+    
+    QHBoxLayout* remoteButtonsLayout = new QHBoxLayout();
+    
+    m_pullButton = new QPushButton(QString::fromUtf8("⬇️ 下拉更新"), this);
     m_pushButton = new QPushButton(QString::fromUtf8("🚀 上传推送"), this);
+    
+    m_pullButton->setStyleSheet(
+        "QPushButton {"
+        "   background-color: #4CAF50;"
+        "   color: white;"
+        "   font-size: 12px;"
+        "   font-weight: bold;"
+        "   border: none;"
+        "   border-radius: 4px;"
+        "   padding: 8px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: #45a049;"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: #3d8b40;"
+        "}"
+    );
+    
     m_pushButton->setStyleSheet(
         "QPushButton {"
         "   background-color: #FF9800;"
@@ -172,11 +176,11 @@ void DatabaseBranchView::setupUi() {
         "}"
     );
     
-    commitButtonsLayout->addWidget(m_commitButton);
-    commitButtonsLayout->addWidget(m_pushButton);
-    commitLayout->addLayout(commitButtonsLayout);
+    remoteButtonsLayout->addWidget(m_pullButton);
+    remoteButtonsLayout->addWidget(m_pushButton);
+    remoteLayout->addLayout(remoteButtonsLayout);
     
-    mainLayout->addWidget(commitGroup);
+    mainLayout->addWidget(remoteGroup);
     
     // MR提交专区（目标锁定为develop）
     m_mrZone = new MrZone(m_gitService, m_gitLabApi, this);
@@ -187,8 +191,8 @@ void DatabaseBranchView::setupUi() {
 
 void DatabaseBranchView::connectSignals() {
     connect(m_refreshButton, &QPushButton::clicked, this, &DatabaseBranchView::onRefreshClicked);
-    connect(m_stageAllButton, &QPushButton::clicked, this, &DatabaseBranchView::onStageAllClicked);
     connect(m_commitButton, &QPushButton::clicked, this, &DatabaseBranchView::onCommitClicked);
+    connect(m_pullButton, &QPushButton::clicked, this, &DatabaseBranchView::onPullClicked);
     connect(m_pushButton, &QPushButton::clicked, this, &DatabaseBranchView::onPushClicked);
     
     // MR Zone信号
@@ -225,23 +229,20 @@ void DatabaseBranchView::onRefreshClicked() {
     updateFileList();
 }
 
-void DatabaseBranchView::onStageAllClicked() {
-    if (m_gitService->stageAll()) {
-        QMessageBox::information(this, QString::fromUtf8("暂存成功"),
-            QString::fromUtf8("✅ 所有修改已暂存"));
-        updateFileList();
-    } else {
-        QMessageBox::warning(this, QString::fromUtf8("暂存失败"),
-            QString::fromUtf8("暂存文件失败"));
-    }
-}
-
 void DatabaseBranchView::onCommitClicked() {
     bool ok;
     QString message = QInputDialog::getText(this, QString::fromUtf8("提交信息"),
         QString::fromUtf8("请输入提交信息："), QLineEdit::Normal, QString(), &ok);
     
     if (!ok || message.trimmed().isEmpty()) {
+        return;
+    }
+    
+    // 先暂存所有修改
+    bool stageSuccess = m_gitService->stageAll();
+    if (!stageSuccess) {
+        QMessageBox::warning(this, QString::fromUtf8("暂存失败"),
+            QString::fromUtf8("暂存文件失败，请检查Git状态"));
         return;
     }
     
@@ -253,6 +254,57 @@ void DatabaseBranchView::onCommitClicked() {
         QMessageBox::warning(this, QString::fromUtf8("提交失败"),
             QString::fromUtf8("提交失败，请检查是否有文件已暂存"));
     }
+}
+
+void DatabaseBranchView::onPullClicked() {
+    QString currentBranch = m_gitService->getCurrentBranch();
+    
+    int ret = QMessageBox::question(
+        this,
+        QString::fromUtf8("确认下拉"),
+        QString::fromUtf8("确认要从远程仓库拉取 %1 分支的最新代码？").arg(currentBranch),
+        QMessageBox::Yes | QMessageBox::No
+    );
+    
+    if (ret != QMessageBox::Yes) {
+        return;
+    }
+    
+    QProgressDialog* progress = new QProgressDialog(
+        QString::fromUtf8("正在从远程仓库拉取代码..."), 
+        QString(), 0, 0, this);
+    progress->setWindowTitle(QString::fromUtf8("拉取中"));
+    progress->setMinimumWidth(255);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setCancelButton(nullptr);
+    progress->setValue(0);
+    progress->show();
+    
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress]() {
+        bool success = watcher->result();
+        
+        progress->close();
+        progress->deleteLater();
+        watcher->deleteLater();
+        
+        if (success) {
+            QMessageBox::information(this, QString::fromUtf8("拉取成功"),
+                QString::fromUtf8("✅ 代码已成功从远程仓库拉取"));
+            updateFileList();
+        } else {
+            QMessageBox::warning(this, QString::fromUtf8("拉取失败"),
+                QString::fromUtf8("拉取失败，请检查网络连接或是否存在冲突"));
+        }
+    });
+    
+    QFuture<bool> future = QtConcurrent::run([this]() {
+        return m_gitService->pullLatest();
+    });
+    
+    watcher->setFuture(future);
 }
 
 void DatabaseBranchView::onPushClicked() {

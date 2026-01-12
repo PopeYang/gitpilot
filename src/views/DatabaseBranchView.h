@@ -26,8 +26,8 @@ protected:
     
 private slots:
     void onRefreshClicked();
-    void onStageAllClicked();
     void onCommitClicked();
+    void onPullClicked();
     void onPushClicked();
     void onConflictCheckRequested(const QString& targetBranch);
     void onMrSubmitted(const QString& targetBranch, const QString& title, const QString& description);
@@ -43,8 +43,8 @@ private:
     
     QListWidget* m_filesListWidget;
     QPushButton* m_refreshButton;
-    QPushButton* m_stageAllButton;
     QPushButton* m_commitButton;
+    QPushButton* m_pullButton;
     QPushButton* m_pushButton;
     MrZone* m_mrZone;
     QLabel* m_warningLabel;
