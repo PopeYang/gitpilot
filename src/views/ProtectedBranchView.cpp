@@ -1,6 +1,7 @@
 #include "ProtectedBranchView.h"
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
+#include "utils/Logger.h"
 #include "widgets/BranchCreatorDialog.h"
 #include "widgets/ProgressDialog.h"
 #include <QVBoxLayout>
@@ -17,11 +18,14 @@
 #include <QProgressDialog>
 #include <QtConcurrent>
 #include <QFutureWatcher>
-#include <QListWidget>
+#include <QFutureWatcher>
+#include <QTreeWidget>
+#include <QHeaderView>
 #include <QTimer>
 #include <QDesktopServices>
 #include <QUrl>
 #include <QMenu>
+#include <QTimeZone>
 
 ProtectedBranchView::ProtectedBranchView(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent) 
     : QWidget(parent)
@@ -164,10 +168,31 @@ void ProtectedBranchView::setupUi() {
     mrHeaderLayout->addWidget(m_mrRefreshButton);
     mrLayout->addLayout(mrHeaderLayout);
     
-    m_mrListWidget = new QListWidget(this);
-    m_mrListWidget->setAlternatingRowColors(true);
-    m_mrListWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-    mrLayout->addWidget(m_mrListWidget);
+    m_mrTreeWidget = new QTreeWidget(this);
+    m_mrTreeWidget->setAlternatingRowColors(true);
+    m_mrTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_mrTreeWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_mrTreeWidget->setRootIsDecorated(false);
+    
+    // 设置列头
+    QStringList headerLabels;
+    headerLabels << "ID" << "标题" << "内容" << "提交人" << "时间";
+    m_mrTreeWidget->setHeaderLabels(headerLabels);
+    
+    // 设置字体大小
+    QFont font = m_mrTreeWidget->font();
+    font.setPointSize(11); // 增大字体
+    m_mrTreeWidget->setFont(font);
+    
+    // 设置列宽策略
+    QHeaderView* header = m_mrTreeWidget->header();
+    header->setSectionResizeMode(0, QHeaderView::ResizeToContents); // ID
+    header->setSectionResizeMode(1, QHeaderView::Stretch);          // 标题
+    header->setSectionResizeMode(2, QHeaderView::Stretch);          // 内容
+    header->setSectionResizeMode(3, QHeaderView::ResizeToContents); // 提交人
+    header->setSectionResizeMode(4, QHeaderView::ResizeToContents); // 时间
+
+    mrLayout->addWidget(m_mrTreeWidget);
     
     mainLayout->addWidget(m_mrGroup);
     
@@ -195,8 +220,8 @@ void ProtectedBranchView::connectSignals() {
     connect(m_gitLabApi, &GitLabApi::mergeRequestClosed, this, &ProtectedBranchView::onMrOperationCompleted);
     connect(m_gitLabApi, &GitLabApi::apiError, this, &ProtectedBranchView::onMrOperationFailed);
     connect(m_mrRefreshButton, &QPushButton::clicked, this, &ProtectedBranchView::refreshMrs);
-    connect(m_mrListWidget, &QListWidget::itemDoubleClicked, this, &ProtectedBranchView::onMrItemDoubleClicked);
-    connect(m_mrListWidget, &QListWidget::customContextMenuRequested, this, &ProtectedBranchView::onMrContextMenuRequested);
+    connect(m_mrTreeWidget, &QTreeWidget::itemDoubleClicked, this, &ProtectedBranchView::onMrItemDoubleClicked);
+    connect(m_mrTreeWidget, &QTreeWidget::customContextMenuRequested, this, &ProtectedBranchView::onMrContextMenuRequested);
     
     connect(m_gitService, &GitService::operationStarted, this, &ProtectedBranchView::onOperationStarted);
     connect(m_gitService, &GitService::operationFinished, this, &ProtectedBranchView::onOperationFinished);
@@ -326,6 +351,13 @@ void ProtectedBranchView::onOperationStarted(const QString& operation) {
 void ProtectedBranchView::onOperationFinished(const QString& operation, bool success) {
     if (success) {
         m_statusLabel->setText(QString::fromUtf8("完成: %1").arg(operation));
+        
+        // 切换分支成功后自动刷新MR列表
+        if (operation.contains("checkout") || operation.contains("switch")) {
+            emit branchChanged();
+            // 使用0.5秒延迟确保git操作完全释放锁
+            QTimer::singleShot(500, this, &ProtectedBranchView::refreshMrs);
+        }
     } else {
         m_statusLabel->setText(QString::fromUtf8("失败: %1").arg(operation));
     }
@@ -440,27 +472,61 @@ void ProtectedBranchView::refreshMrs() {
 }
 
 void ProtectedBranchView::onMergeRequestsReceived(const QList<MrResponse>& mrs) {
-    m_mrListWidget->clear();
+    m_mrTreeWidget->clear();
     setCursor(Qt::ArrowCursor);
     
     if (mrs.isEmpty()) {
-        m_mrListWidget->addItem(QString::fromUtf8("✓ 没有待处理的MR"));
+        QTreeWidgetItem* item = new QTreeWidgetItem(m_mrTreeWidget);
+        item->setText(1, QString::fromUtf8("✓ 没有待处理的MR"));
     } else {
         for (const MrResponse& mr : mrs) {
-            QString display = QString("!%1: %2").arg(mr.iid).arg(mr.title);
-            QListWidgetItem* item = new QListWidgetItem(display);
-            item->setData(Qt::UserRole, mr.webUrl);
-            item->setData(Qt::UserRole + 1, mr.iid);  // Store MR IID for context menu
-            item->setToolTip(QString::fromUtf8("创建时间: %1\n状态: %2\n右键点击查看更多操作").arg(mr.createdAt, mr.state));
-            m_mrListWidget->addItem(item);
+            QTreeWidgetItem* item = new QTreeWidgetItem(m_mrTreeWidget);
+            item->setText(0, QString::number(mr.iid));
+            item->setText(1, mr.title);
+            item->setText(2, mr.description.left(100) + (mr.description.length() > 100 ? "..." : "")); // 截断显示
+            item->setText(3, mr.authorName);
+            
+            // 格式化时间
+            QDateTime dt = QDateTime::fromString(mr.createdAt, Qt::ISODate);
+            
+            // Debug Log
+            LOG_INFO(QString("MR created_at raw: %1, Parsed: %2, Spec: %3")
+                     .arg(mr.createdAt)
+                     .arg(dt.toString(Qt::ISODate))
+                     .arg(dt.timeSpec()));
+
+            // 强制转换为UTC+8 (28800秒)
+            QTimeZone zone = QTimeZone::fromSecondsAheadOfUtc(28800);
+            QDateTime dt8 = dt.toTimeZone(zone); // Use new variable
+            
+             LOG_INFO(QString("Converted to +8: %1").arg(dt8.toString(Qt::ISODate)));
+             
+            item->setText(4, dt8.toString("MM-dd HH:mm"));
+            
+            // 设置数据
+            item->setData(0, Qt::UserRole, mr.webUrl);
+            item->setData(0, Qt::UserRole + 1, mr.iid);
+
+            // 设置ToolTip
+            QString tooltip = QString::fromUtf8(
+                "MR !%1\n"
+                "标题: %2\n"
+                "提交人: %3\n"
+                "时间: %4\n\n"
+                "%5"
+            ).arg(mr.iid).arg(mr.title, mr.authorName, dt.toString("MM-dd HH:mm"), mr.description);
+            
+            for(int i=0; i<5; ++i) {
+                item->setToolTip(i, tooltip);
+            }
         }
     }
 }
 
-void ProtectedBranchView::onMrItemDoubleClicked(QListWidgetItem* item) {
+void ProtectedBranchView::onMrItemDoubleClicked(QTreeWidgetItem* item, int column) {
     if (!item) return;
     
-    QString url = item->data(Qt::UserRole).toString();
+    QString url = item->data(0, Qt::UserRole).toString();
     if (url.isEmpty()) {
         return; // 空条目(如 "没有待处理的MR")
     }
@@ -473,14 +539,14 @@ void ProtectedBranchView::onMrItemDoubleClicked(QListWidgetItem* item) {
 }
 
 void ProtectedBranchView::onMrContextMenuRequested(const QPoint& pos) {
-    QListWidgetItem* item = m_mrListWidget->itemAt(pos);
+    QTreeWidgetItem* item = m_mrTreeWidget->itemAt(pos);
     if (!item) return;
     
-    QString url = item->data(Qt::UserRole).toString();
+    QString url = item->data(0, Qt::UserRole).toString();
     if (url.isEmpty()) return; // 空条目
     
     // 从UserRole+1获取MR IID
-    m_selectedMrIid = item->data(Qt::UserRole + 1).toInt();
+    m_selectedMrIid = item->data(0, Qt::UserRole + 1).toInt();
     if (m_selectedMrIid == 0) return;
     
     QMenu contextMenu(this);
@@ -498,7 +564,7 @@ void ProtectedBranchView::onMrContextMenuRequested(const QPoint& pos) {
         QDesktopServices::openUrl(QUrl(url));
     });
     
-    contextMenu.exec(m_mrListWidget->mapToGlobal(pos));
+    contextMenu.exec(m_mrTreeWidget->mapToGlobal(pos));
 }
 
 void ProtectedBranchView::onMrApproveClicked() {

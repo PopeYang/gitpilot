@@ -477,6 +477,12 @@ MrResponse GitLabApi::parseMergeRequest(const QJsonObject& json) {
     mr.webUrl = json["web_url"].toString();
     mr.state = json["state"].toString();
     mr.createdAt = json["created_at"].toString();
+    mr.description = json["description"].toString();
+    
+    if (json.contains("author") && json["author"].isObject()) {
+        QJsonObject author = json["author"].toObject();
+        mr.authorName = author["name"].toString();
+    }
     return mr;
 }
 

@@ -31,6 +31,8 @@ struct MrResponse {
     QString webUrl;             // MR网页链接
     QString state;              // 状态: opened/merged/closed
     QString createdAt;
+    QString description;        // MR描述
+    QString authorName;         // 提交人名称
     
     MrResponse() : id(0), iid(0) {}
 };

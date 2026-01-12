@@ -8,8 +8,8 @@ class GitService;
 class GitLabApi;
 class QPushButton;
 class QLabel;
-class QListWidget;
-class QListWidgetItem;
+class QTreeWidget;
+class QTreeWidgetItem;
 class QGroupBox;
 struct MrResponse;
 
@@ -30,7 +30,7 @@ private slots:
     void onSwitchBranchClicked();
     void onOperationStarted(const QString& operation);
     void onOperationFinished(const QString& operation, bool success);
-    void onMrItemDoubleClicked(QListWidgetItem* item);
+    void onMrItemDoubleClicked(QTreeWidgetItem* item, int column);
     
 private:
     void setupUi();
@@ -45,7 +45,7 @@ private:
     QLabel* m_statusLabel;
     
     QGroupBox* m_mrGroup;
-    QListWidget* m_mrListWidget;
+    QTreeWidget* m_mrTreeWidget;
     QPushButton* m_mrRefreshButton;
     
 private slots:
