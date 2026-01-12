@@ -3,6 +3,18 @@
 
 #include <QString>
 #include <QDateTime>
+#include <QList>
+
+/**
+ * @brief 项目成员信息
+ */
+struct ProjectMember {
+    int id;                  // 用户 ID
+    QString username;        // 用户名
+    QString name;            // 显示名称
+    
+    ProjectMember() : id(0) {}
+};
 
 /**
  * @brief MR创建参数
@@ -14,6 +26,7 @@ struct MrParams {
     QString description;        // MR描述
     bool removeSourceBranch;    // 合并后删除源分支
     bool squash;                // 是否压缩提交
+    QList<int> assigneeIds;     // 指派的审核人ID列表
     
     MrParams()
         : removeSourceBranch(true)

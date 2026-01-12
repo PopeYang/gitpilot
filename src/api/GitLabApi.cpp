@@ -55,6 +55,20 @@ void GitLabApi::getProject(const QString& projectId) {
     sendGetRequest(endpoint, "getProject");
 }
 
+void GitLabApi::listProjectMembers() {
+    LOG_INFO(QString("API调用: 获取项目成员"));
+    
+    if (m_projectId.isEmpty()) {
+        LOG_ERROR("项目ID未设置，无法获取成员");
+        emit apiError("listProjectMembers", QString::fromUtf8("项目ID未设置"));
+        return;
+    }
+    
+    QString encodedProjectId = QString(QUrl::toPercentEncoding(m_projectId));
+    QString endpoint = QString("/api/v4/projects/%1/members/all").arg(encodedProjectId);
+    sendGetRequest(endpoint, "listProjectMembers");
+}
+
 // ========== MR API ==========
 
 void GitLabApi::createMergeRequest(const MrParams& params) {
@@ -78,6 +92,15 @@ void GitLabApi::createMergeRequest(const MrParams& params) {
     
     json["remove_source_branch"] = params.removeSourceBranch;
     json["squash"] = params.squash;
+    
+    // 指派审核人
+    if (!params.assigneeIds.isEmpty()) {
+        QJsonArray assignees;
+        for (int id : params.assigneeIds) {
+            assignees.append(id);
+        }
+        json["assignee_ids"] = assignees;
+    }
     
     LOG_INFO(QString("MR JSON: %1").arg(QString(QJsonDocument(json).toJson())));
     
@@ -368,6 +391,9 @@ void GitLabApi::onReplyFinished(QNetworkReply* reply) {
         else if (callbackId == "getProject") {
             handleProjectResponse(doc.object());
         }
+        else if (callbackId == "listProjectMembers") {
+            handleProjectMembersResponse(doc.array());
+        }
         else if (callbackId == "createMergeRequest") {
             // 提取isCreate属性并传递给handler
             bool isCreate = reply->property("isCreate").toBool();
@@ -430,6 +456,14 @@ void GitLabApi::handleProjectsResponse(const QJsonArray& jsonArray) {
 void GitLabApi::handleProjectResponse(const QJsonObject& json) {
     ProjectInfo project = parseProjectInfo(json);
     emit projectReceived(project);
+}
+
+void GitLabApi::handleProjectMembersResponse(const QJsonArray& jsonArray) {
+    QList<ProjectMember> members;
+    for (const QJsonValue& val : jsonArray) {
+        members.append(parseProjectMember(val.toObject()));
+    }
+    emit projectMembersReceived(members);
 }
 
 void GitLabApi::handleMergeRequestResponse(const QJsonObject& json, bool isCreate) {
@@ -495,6 +529,14 @@ ProjectInfo GitLabApi::parseProjectInfo(const QJsonObject& json) {
     project.description = json["description"].toString();
     project.webUrl = json["web_url"].toString();
     return project;
+}
+
+ProjectMember GitLabApi::parseProjectMember(const QJsonObject& json) {
+    ProjectMember member;
+    member.id = json["id"].toInt();
+    member.username = json["username"].toString();
+    member.name = json["name"].toString();
+    return member;
 }
 
 MrResponse GitLabApi::parseMergeRequest(const QJsonObject& json) {

@@ -1,0 +1,25 @@
+
+bool MrZone::eventFilter(QObject* obj, QEvent* event) {
+    if (obj == m_assigneeCombo) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            showAssigneePopup();
+            return true;  // 阻止默认行为
+        }
+    }
+    return QWidget::eventFilter(obj, event);
+}
+
+void MrZone::showAssigneePopup() {
+    if (m_assigneeList->count() == 0) {
+        return;
+    }
+    
+    // 定位到下拉框下方
+    QPoint pos = m_assigneeCombo->mapToGlobal(QPoint(0, m_assigneeCombo->height()));
+    m_assigneeList->move(pos);
+    m_assigneeList->setFixedWidth(m_assigneeCombo->width());
+    m_assigneeList->setFixedHeight(200);
+    m_assigneeList->show();
+    m_assigneeList->raise();
+    m_assigneeList->activateWindow();
+}

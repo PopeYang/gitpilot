@@ -1,0 +1,16 @@
+
+void MrZone::loadProjectMembers() {
+    m_gitLabApi->listProjectMembers();
+}
+
+void MrZone::onProjectMembersReceived(const QList<ProjectMember>& members) {
+    m_projectMembers = members;
+    m_assigneeList->clear();
+    
+    for (const ProjectMember& member : members) {
+        QListWidgetItem* item = new QListWidgetItem(m_assigneeList);
+        item->setText(QString("%1 (%2)").arg(member.name, member.username));
+        item->setData(Qt::UserRole, member.id);
+        m_assigneeList->addItem(item);
+    }
+}

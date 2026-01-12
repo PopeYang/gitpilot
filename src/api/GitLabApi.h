@@ -28,6 +28,7 @@ public:
     // 项目API
     void getProjects();    // 获取用户有权限的项目列表
     void getProject(const QString& projectId);
+    void listProjectMembers();  // 获取项目成员列表
     
     // MR API
     void createMergeRequest(const MrParams& params);
@@ -53,6 +54,7 @@ signals:
     void userInfoReceived(const UserInfo& user);
     void projectsReceived(const QList<ProjectInfo>& projects);
     void projectReceived(const ProjectInfo& project);
+    void projectMembersReceived(const QList<ProjectMember>& members);  // 项目成员列表
     void mergeRequestCreated(const MrResponse& mr);
     void mergeRequestReceived(const MrResponse& mr);
     void mergeRequestsReceived(const QList<MrResponse>& mrs);
@@ -89,6 +91,7 @@ private:
     void handleUserInfoResponse(const QJsonObject& json);
     void handleProjectsResponse(const QJsonArray& jsonArray);
     void handleProjectResponse(const QJsonObject& json);
+    void handleProjectMembersResponse(const QJsonArray& jsonArray);  // 处理成员响应
     void handleMergeRequestResponse(const QJsonObject& json, bool isCreate);
     void handleMergeRequestsResponse(const QJsonArray& jsonArray);
     void handlePipelineResponse(const QJsonObject& json, bool isTrigger);
@@ -98,6 +101,7 @@ private:
     // 数据解析
     UserInfo parseUserInfo(const QJsonObject& json);
     ProjectInfo parseProjectInfo(const QJsonObject& json);
+    ProjectMember parseProjectMember(const QJsonObject& json);  // 解析成员
     MrResponse parseMergeRequest(const QJsonObject& json);
     PipelineStatus parsePipeline(const QJsonObject& json);
     

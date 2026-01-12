@@ -1,6 +1,7 @@
 #include "MrZone.h"
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
+#include "api/ApiModels.h"  // 新增：为 ProjectMember
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -10,7 +11,15 @@
 #include <QTextEdit>
 #include <QPushButton>
 #include <QLabel>
+#include <QListWidget>  // 新增
 #include <QMessageBox>
+#include <QEvent>  // 新增：事件过滤
+#include <QMouseEvent>  // 新增：鼠标事件
+#include <QCursor>  // 新增：光标位置
+#include <QApplication>  // 新增：qApp
+#include <QTimer>  // 新增：延迟更新
+#include <QStyle>
+#include <QStyleOption>
 
 MrZone::MrZone(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent)
     : QWidget(parent)
@@ -19,6 +28,16 @@ MrZone::MrZone(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent)
     , m_isLocked(false)
 {
     setupUi();
+    
+    // 连接成员列表信号
+    connect(m_gitLabApi, &GitLabApi::projectMembersReceived,
+            this, &MrZone::onProjectMembersReceived);
+    
+    // 加载项目成员
+    loadProjectMembers();
+    
+    // 安装应用级事件过滤器，用于检测外部点击
+    qApp->installEventFilter(this);
 }
 
 void MrZone::setupUi() {
@@ -52,6 +71,46 @@ void MrZone::setupUi() {
     );
     m_descriptionEdit->setMaximumHeight(100);
     formLayout->addRow(QString::fromUtf8("修改内容:"), m_descriptionEdit);
+    
+    // 新增：审核人选择（下拉框式）
+    QHBoxLayout* assigneeLayout = new QHBoxLayout();
+    
+    // 下拉框（显示已选中的审核人）
+    m_assigneeCombo = new QComboBox(this);
+    m_assigneeCombo->setEditable(true);
+    m_assigneeCombo->lineEdit()->setPlaceholderText(QString::fromUtf8("点击选择审核人..."));
+    m_assigneeCombo->lineEdit()->setReadOnly(true);  // 只能点击，不能输入
+    
+    // 创建带复选框的列表
+    m_assigneeList = new QListWidget();
+    m_assigneeList->setWindowFlags(Qt::Popup);
+    m_assigneeList->setFocusPolicy(Qt::NoFocus);
+    m_assigneeList->setMouseTracking(true);
+    
+    // 安装事件过滤器到组合框、输入框和列表视口
+    m_assigneeCombo->installEventFilter(this);
+    m_assigneeCombo->lineEdit()->installEventFilter(this);
+    m_assigneeList->viewport()->installEventFilter(this);
+    
+    // 禁用默认选择高亮（只用复选框）
+    m_assigneeList->setSelectionMode(QAbstractItemView::NoSelection);
+    
+    // 使用 itemChanged 信号更新文本（更可靠，处理所有状态变更）
+    connect(m_assigneeList, &QListWidget::itemChanged, this, [this](QListWidgetItem*) {
+        updateAssigneeComboText();
+    });
+
+    
+    assigneeLayout->addWidget(m_assigneeCombo);
+    
+    // 刷新按钮
+    QPushButton* refreshButton = new QPushButton(QString::fromUtf8("🔄"), this);
+    refreshButton->setMaximumWidth(35);
+    refreshButton->setToolTip(QString::fromUtf8("刷新成员列表"));
+    connect(refreshButton, &QPushButton::clicked, this, &MrZone::loadProjectMembers);
+    assigneeLayout->addWidget(refreshButton);
+    
+    formLayout->addRow(QString::fromUtf8("指派审核人:"), assigneeLayout);
     
     groupLayout->addLayout(formLayout);
     
@@ -130,6 +189,9 @@ void MrZone::setupUi() {
 void MrZone::updateForBranch(const QString& currentBranch) {
     m_currentBranch = currentBranch;
     
+    // 重新加载成员列表（以防成员变化）
+    loadProjectMembers();
+    
     // QC关键防呆逻辑：develop-database分支只能向develop合并
     if (currentBranch == "develop-database") {
         lockTargetBranch("develop");
@@ -205,22 +267,154 @@ void MrZone::onSubmitClicked() {
     
     QString targetBranch = m_targetBranchCombo->currentText();
     
+    // 获取选中的审核人（从复选框）
+    QList<int> assigneeIds;
+    QStringList assigneeNames;
+    for (int i = 0; i < m_assigneeList->count(); ++i) {
+        QListWidgetItem* item = m_assigneeList->item(i);
+        if (item->checkState() == Qt::Checked) {
+            assigneeIds.append(item->data(Qt::UserRole).toInt());
+            // 提取名字部分
+            QString fullText = item->text();
+            QString name = fullText.split(" (").first();
+            assigneeNames.append(name);
+        }
+    }
+    
     // 确认对话框
     QString confirmMsg = QString::fromUtf8(
         "即将创建MR：\n\n"
         "源分支: %1\n"
         "目标分支: %2\n"
-        "标题: %3\n\n"
+        "标题: %3\n"
+        "审核人: %4\n\n"
         "确认继续？\n\n"
         "💡 提示：请确保代码已提交并推送到远程仓库"
-    ).arg(m_currentBranch, targetBranch, title);
+    ).arg(m_currentBranch, targetBranch, title,
+          assigneeNames.isEmpty() ? "无" : assigneeNames.join(", "));
     
     int ret = QMessageBox::question(this, QString::fromUtf8("确认提交"),
         confirmMsg,
         QMessageBox::Yes | QMessageBox::No);
     
     if (ret == QMessageBox::Yes) {
-        // 发送信号通知父组件执行工作流
-        emit mrSubmitted(targetBranch, title, description);
+        // 直接创建MR，包含审核人
+        MrParams params;
+        params.sourceBranch = m_currentBranch;
+        params.targetBranch = targetBranch;
+        params.title = title;
+        params.description = description;
+        params.assigneeIds = assigneeIds;
+        
+        m_gitLabApi->createMergeRequest(params);
     }
+}
+
+void MrZone::loadProjectMembers() {
+    m_gitLabApi->listProjectMembers();
+}
+
+void MrZone::onProjectMembersReceived(const QList<ProjectMember>& members) {
+    m_projectMembers = members;
+    m_assigneeList->clear();
+    
+    // 添加带复选框的成员项
+    for (const ProjectMember& member : members) {
+        QListWidgetItem* item = new QListWidgetItem(m_assigneeList);
+        item->setText(QString("%1 (%2)").arg(member.name, member.username));
+        item->setData(Qt::UserRole, member.id);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Unchecked);
+        m_assigneeList->addItem(item);
+    }
+    
+    updateAssigneeComboText();
+}
+
+void MrZone::updateAssigneeComboText() {
+    QStringList selectedNames;
+    
+    for (int i = 0; i < m_assigneeList->count(); ++i) {
+        QListWidgetItem* item = m_assigneeList->item(i);
+        if (item->checkState() == Qt::Checked) {
+            // 只显示名字部分，不显示用户名
+            QString fullText = item->text();
+            QString name = fullText.split(" (").first();
+            selectedNames.append(name);
+        }
+    }
+    
+    if (selectedNames.isEmpty()) {
+        m_assigneeCombo->lineEdit()->clear();
+        m_assigneeCombo->lineEdit()->setPlaceholderText(QString::fromUtf8("点击选择审核人..."));
+    } else {
+        m_assigneeCombo->lineEdit()->setText(selectedNames.join(", "));
+    }
+}
+
+bool MrZone::eventFilter(QObject* obj, QEvent* event) {
+    if (event->type() == QEvent::MouseButtonPress) {
+        // 1. 处理列表视口点击（实现全行点击勾选）
+        if (obj == m_assigneeList->viewport()) {
+            QMouseEvent* me = static_cast<QMouseEvent*>(event);
+            QListWidgetItem* item = m_assigneeList->itemAt(me->pos());
+            if (item) {
+                // 检查是否点击了复选框区域（如果是，让Qt自己处理）
+                QStyleOptionViewItem option;
+                option.initFrom(m_assigneeList);
+                option.rect = m_assigneeList->visualItemRect(item);
+                option.features |= QStyleOptionViewItem::HasCheckIndicator;
+                option.viewItemPosition = QStyleOptionViewItem::Middle;
+                
+                QRect checkRect = m_assigneeList->style()->subElementRect(QStyle::SE_ItemViewItemCheckIndicator, &option, m_assigneeList);
+                
+                if (!checkRect.contains(me->pos())) {
+                    // 点击了文字区域 -> 手动切换状态
+                    bool checked = (item->checkState() == Qt::Checked);
+                    item->setCheckState(checked ? Qt::Unchecked : Qt::Checked);
+                    return true; // 阻止默认的选择行为（避免高亮）
+                }
+            }
+        }
+        
+        // 2. 处理下拉框点击（Toggle）
+        if (obj == m_assigneeCombo || obj == m_assigneeCombo->lineEdit()) {
+            if (m_assigneeList->isVisible()) {
+                m_assigneeList->hide();
+            } else {
+                showAssigneePopup();
+            }
+            return true;
+        }
+        
+        // 3. 处理外部点击（自动隐藏）
+        if (m_assigneeList->isVisible()) {
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            QPoint globalPos = mouseEvent->globalPosition().toPoint();
+            
+            bool inList = m_assigneeList->geometry().contains(globalPos);
+            bool inCombo = m_assigneeCombo->rect().contains(m_assigneeCombo->mapFromGlobal(globalPos));
+            
+            if (!inList && !inCombo) {
+                m_assigneeList->hide();
+            }
+        }
+    }
+    
+    return QWidget::eventFilter(obj, event);
+}
+
+void MrZone::showAssigneePopup() {
+    if (m_assigneeList->count() == 0) {
+        return;
+    }
+    
+    // 定位到下拉框下方
+    QPoint pos = m_assigneeCombo->mapToGlobal(QPoint(0, m_assigneeCombo->height()));
+    m_assigneeList->move(pos);
+    m_assigneeList->setFixedWidth(m_assigneeCombo->width());
+    m_assigneeList->setFixedHeight(200);
+    m_assigneeList->show();
+    m_assigneeList->raise();
+    m_assigneeList->activateWindow();
 }

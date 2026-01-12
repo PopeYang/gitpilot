@@ -8,8 +8,10 @@ class QLineEdit;
 class QTextEdit;
 class QPushButton;
 class QLabel;
+class QListWidget;  // 新增
 class GitService;
 class GitLabApi;
+struct ProjectMember;  // 新增
 
 /**
  * @brief MR提交专区组件
@@ -37,11 +39,18 @@ signals:
 private slots:
     void onCheckConflictClicked();
     void onSubmitClicked();
+    void onProjectMembersReceived(const QList<ProjectMember>& members);
+    void updateAssigneeComboText();  // 新增：更新显示文本
     
 private:
     void setupUi();
     void lockTargetBranch(const QString& branch);
     void unlockTargetBranch();
+    void loadProjectMembers();
+    void showAssigneePopup();  // 新增：显示弹出列表
+    
+    // 事件过滤器
+    bool eventFilter(QObject* obj, QEvent* event) override;
     
     GitService* m_gitService;
     GitLabApi* m_gitLabApi;
@@ -52,7 +61,10 @@ private:
     QPushButton* m_checkConflictButton;
     QPushButton* m_submitButton;
     QLabel* m_statusLabel;
+    QComboBox* m_assigneeCombo;    // 新增：审核人下拉框
+    QListWidget* m_assigneeList;   // 新增：弹出列表
     
+    QList<ProjectMember> m_projectMembers;  // 新增：缓存成员列表
     QString m_currentBranch;
     bool m_isLocked;
 };
