@@ -1,11 +1,15 @@
 #include <QApplication>
 #include <QMessageBox>
 #include "config/ConfigManager.h"
+#include "config/FontConfig.h"
 #include "ui/FirstRunWizard.h"
 #include "ui/MainWindow.h"
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
+    
+    // 应用全局字体规范
+    FontConfig::applyGlobalStyle(&app);
     
     // 设置应用程序信息（用于QSettings）
     QCoreApplication::setOrganizationName("GitPilot");

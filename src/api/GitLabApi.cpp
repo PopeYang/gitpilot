@@ -201,7 +201,7 @@ void GitLabApi::getPipelineStatus(int pipelineId) {
 
 void GitLabApi::listPipelines(const QString& ref) {
     QString encodedProjectId = QString(QUrl::toPercentEncoding(m_projectId));
-    QString endpoint = QString("/api/v4/projects/%1/pipelines?per_page=8").arg(encodedProjectId);
+    QString endpoint = QString("/api/v4/projects/%1/pipelines?per_page=11").arg(encodedProjectId);
     if (!ref.isEmpty()) {
         endpoint += QString("&ref=%1").arg(ref);
     }

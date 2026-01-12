@@ -42,6 +42,7 @@ set(SOURCES
     src/automation/WorkflowEngine.cpp
     src/automation/BuildMonitor.cpp
     src/config/ConfigManager.cpp
+    src/config/FontConfig.cpp
     src/utils/Logger.cpp
     src/resources/gitpilot.rc
     src/resources/resources.qrc
@@ -67,6 +68,7 @@ set(HEADERS
     src/automation/WorkflowEngine.h
     src/automation/BuildMonitor.h
     src/config/ConfigManager.h
+    src/config/FontConfig.h
     src/utils/Logger.h
 )
 

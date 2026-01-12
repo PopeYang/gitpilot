@@ -59,7 +59,7 @@ void DatabaseBranchView::setupUi() {
     mainLayout->addWidget(warningGroup);
     
     // 文件状态区域
-    QGroupBox* filesGroup = new QGroupBox(QString::fromUtf8("📂 待提交文件"), this);
+    QGroupBox* filesGroup = new QGroupBox(QString::fromUtf8("📂 提交文件"), this);
     filesGroup->setStyleSheet("QGroupBox { font-size: 13px; font-weight: bold; padding: 10px; }");
     
     QVBoxLayout* filesLayout = new QVBoxLayout(filesGroup);

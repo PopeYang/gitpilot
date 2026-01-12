@@ -165,7 +165,7 @@ void MainBranchView::setupUi() {
     m_pipelineTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     m_pipelineTreeWidget->setSelectionMode(QAbstractItemView::SingleSelection);
     m_pipelineTreeWidget->setRootIsDecorated(false);
-    m_pipelineTreeWidget->setMinimumHeight(210);
+    m_pipelineTreeWidget->setMinimumHeight(200);
     
     // Set font size
     QFont plFont = m_pipelineTreeWidget->font();
