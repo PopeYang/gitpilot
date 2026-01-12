@@ -265,7 +265,7 @@ void MainBranchView::onTriggerBuildClicked() {
         return;
     }
     
-    // 显示进度对话框
+    // 显示简短的进度提示
     QProgressDialog* progress = new QProgressDialog(
         QString::fromUtf8("正在触发Pipeline..."), 
         QString(), 0, 0, this);
@@ -278,38 +278,26 @@ void MainBranchView::onTriggerBuildClicked() {
     progress->show();
     QApplication::processEvents();
     
-    // 连接成功信号
-    connect(m_gitLabApi, &GitLabApi::pipelineTriggered, this,
-        [this, progress](const PipelineStatus& pipeline) {
-            progress->close();
-            progress->deleteLater();
-            
-            QMessageBox::information(this, QString::fromUtf8("构建已触发"),
-                QString::fromUtf8("✅ Pipeline已成功触发\n\n"
-                                 "Pipeline ID: %1\n"
-                                 "状态: %2").arg(pipeline.id).arg(pipeline.status));
-            
-            disconnect(m_gitLabApi, &GitLabApi::pipelineTriggered, this, nullptr);
-            disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
-        });
-    
-    // 连接错误信号
+    // 连接错误信号 - 只在失败时提示
     connect(m_gitLabApi, &GitLabApi::apiError, this,
-        [this, progress](const QString& endpoint, const QString& errorMessage) {
+        [this](const QString& endpoint, const QString& errorMessage) {
             if (endpoint.contains("pipeline")) {
-                progress->close();
-                progress->deleteLater();
-                
                 QMessageBox::warning(this, QString::fromUtf8("触发失败"),
                     QString::fromUtf8("Pipeline触发失败：\n\n%1").arg(errorMessage));
                 
-                disconnect(m_gitLabApi, &GitLabApi::pipelineTriggered, this, nullptr);
                 disconnect(m_gitLabApi, &GitLabApi::apiError, this, nullptr);
             }
         });
     
     // 触发API调用
     m_gitLabApi->triggerPipeline(currentBranch);
+    
+    // 立即关闭进度条，因为下方列表会自动刷新显示状态
+    progress->close();
+    progress->deleteLater();
+    
+    // 立即刷新Pipeline列表以显示新触发的Pipeline
+    QTimer::singleShot(1000, this, &MainBranchView::refreshPipelines);
 }
 
 void MainBranchView::onSwitchBranchClicked() {
