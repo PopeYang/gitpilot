@@ -82,7 +82,16 @@ void MrZone::setupUi() {
     m_assigneeCombo = new QComboBox(this);
     m_assigneeCombo->setEditable(true);
     m_assigneeCombo->lineEdit()->setPlaceholderText(QString::fromUtf8("点击选择审核人..."));
+
     m_assigneeCombo->lineEdit()->setReadOnly(true);  // 只能点击，不能输入
+    
+    // 创建一个 overlay Label 显示 Emoji 箭头 "↕️"
+    // parent 设为 m_assigneeCombo，这样它会跟随移动
+    QLabel* arrowLabel = new QLabel("↕️", m_assigneeCombo);
+    arrowLabel->setObjectName("assigneeArrowLabel");
+    arrowLabel->setStyleSheet("background: transparent; border: none; font-size: 14px; color: #666;");
+    arrowLabel->setAttribute(Qt::WA_TransparentForMouseEvents); // 点击穿透
+    arrowLabel->show();
     
     // 创建带复选框的列表
     m_assigneeList = new QListWidget();
@@ -111,6 +120,7 @@ void MrZone::setupUi() {
     // 刷新按钮
     QPushButton* refreshButton = new QPushButton(QString::fromUtf8("🔄"), this);
     refreshButton->setMaximumWidth(35);
+    refreshButton->setMinimumHeight(28); // 保持与左侧 ComboBox 高度一致
     refreshButton->setToolTip(QString::fromUtf8("刷新成员列表"));
     connect(refreshButton, &QPushButton::clicked, this, &MrZone::loadProjectMembers);
     assigneeLayout->addWidget(refreshButton);
@@ -404,6 +414,18 @@ bool MrZone::eventFilter(QObject* obj, QEvent* event) {
                 hideAssigneePopup();
             }
         }
+    } else if (event->type() == QEvent::Resize && obj == m_assigneeCombo) {
+        // 保持 Emoji 箭头在右侧垂直居中
+        QLabel* arrowLabel = m_assigneeCombo->findChild<QLabel*>("assigneeArrowLabel");
+        if (arrowLabel) {
+            int dropDownWidth = 40; // 配合 setArrowState 中的 40px
+            int h = m_assigneeCombo->height();
+            // 精确放置在 drop-down 区域内
+            arrowLabel->setFixedSize(dropDownWidth, h); 
+            arrowLabel->move(m_assigneeCombo->width() - dropDownWidth, 0);
+            arrowLabel->setAlignment(Qt::AlignCenter); 
+            arrowLabel->raise(); // 确保在最上层
+        }
     }
     
     return QWidget::eventFilter(obj, event);
@@ -441,22 +463,37 @@ void MrZone::hideAssigneePopup() {
 }
 
 void MrZone::setArrowState(bool isUp) {
-    // 简单的 SVG Base64 图标 (灰色 Stroke) - 添加单引号
-    QString downArrow = "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTYgOWw2IDYgNi02Ii8+PC9zdmc+')";
-    QString upArrow = "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE4IDE1bC02LTYtNiA2Ii8+PC9zdmc+')";
+    // 1. 更新符号
+    // 使用 Emoji (🔽/🔼) 以保持与右侧刷新按钮一致的风格
+    QLabel* arrowLabel = m_assigneeCombo->findChild<QLabel*>("assigneeArrowLabel");
+    if (arrowLabel) {
+        arrowLabel->setText(isUp ? "🔼" : "🔽");
+        // Emoji 字体
+        arrowLabel->setStyleSheet("background: transparent; border: none; font-size: 14px;");
+    }
 
-    QString style = QString(
-        "QComboBox::down-arrow { "
-        "   image: %1; "
-        "   width: 14px; height: 14px; "
+    // 2. 更新样式
+    // 关键：背景设置为透明，防止系统绘制默认的按钮样式导致错位或重叠
+    // 2. 更新样式 - 全面接管边框绘制，防止系统原生样式导致的错位
+    m_assigneeCombo->setStyleSheet(
+        "QComboBox {"
+        "   border: 1px solid #ccc;"
+        "   border-radius: 4px;"
+        "   padding-left: 10px;"
+        "   padding-right: 40px;" /* 留出右侧空间给箭头 */
+        "   min-height: 28px;"    /* 增加高度，更舒适 */
+        "   background: white;"
         "}"
+        "QComboBox:focus {"
+        "   border: 1px solid #2196F3;" /* 聚焦时蓝色边框 */
+        "}"
+        "QComboBox::down-arrow { image: none; }"
         "QComboBox::drop-down { "
-        "   border: none; "
         "   subcontrol-origin: padding;"
         "   subcontrol-position: top right;"
-        "   width: 20px; "
+        "   width: 40px; "
+        "   border: none; "       /* 按钮无额外边框 */
+        "   background: transparent; "
         "}"
-    ).arg(isUp ? upArrow : downArrow);
-    
-    m_assigneeCombo->setStyleSheet(style);
+    );
 }
