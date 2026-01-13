@@ -1,7 +1,9 @@
 #include "MainWindow.h"
 #include "config/ConfigManager.h"
 #include "utils/Logger.h"
+#include "utils/Logger.h"
 #include "SettingsDialog.h"
+#include "widgets/BranchSwitchDialog.h"
 #include "views/MainBranchView.h"
 #include "views/ProtectedBranchView.h"
 #include "views/FeatureBranchView.h"
@@ -224,24 +226,18 @@ void MainWindow::onBranchSwitchClicked() {
     }
     
     QString currentBranch = m_gitService->getCurrentBranch();
-    int currentIndex = branches.indexOf(currentBranch);
-    if (currentIndex < 0) currentIndex = 0;
     
-    // 自定义输入对话框以设置最小宽度
-    QInputDialog dialog(this);
-    dialog.setWindowTitle(QString::fromUtf8("切换分支"));
-    dialog.setLabelText(QString::fromUtf8("选择要切换的分支:"));
-    dialog.setComboBoxItems(branches);
-    dialog.setTextValue(currentBranch);
-    dialog.setMinimumWidth(255);
-    // 同时也设置对话框的窗口标记，确保它是模态的
-    dialog.setWindowModality(Qt::WindowModal);
+    // 获取配置中的数据库分支名
+    QString databaseBranch = ConfigManager::instance().getDatabaseBranchName();
+    
+    // 使用新的分支切换对话框
+    BranchSwitchDialog dialog(currentBranch, branches, databaseBranch, this);
     
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
     
-    QString targetBranch = dialog.textValue();
+    QString targetBranch = dialog.getTargetBranch();
     if (targetBranch.isEmpty() || targetBranch == currentBranch) {
         return;
     }

@@ -39,6 +39,7 @@ set(SOURCES
     src/widgets/BranchCreatorDialog.cpp
     src/widgets/ProgressDialog.cpp
     src/widgets/PipelineTriggerDialog.cpp
+    src/widgets/BranchSwitchDialog.cpp
     src/automation/WorkflowEngine.cpp
     src/automation/BuildMonitor.cpp
     src/config/ConfigManager.cpp
@@ -65,6 +66,7 @@ set(HEADERS
     src/widgets/BranchCreatorDialog.h
     src/widgets/ProgressDialog.h
     src/widgets/PipelineTriggerDialog.h
+    src/widgets/BranchSwitchDialog.h
     src/automation/WorkflowEngine.h
     src/automation/BuildMonitor.h
     src/config/ConfigManager.h
