@@ -38,6 +38,9 @@ MrZone::MrZone(GitService* gitService, GitLabApi* gitLabApi, QWidget* parent)
     
     // 安装应用级事件过滤器，用于检测外部点击
     qApp->installEventFilter(this);
+    
+    // 初始化箭头样式
+    setArrowState(false);
 }
 
 void MrZone::setupUi() {
@@ -69,7 +72,7 @@ void MrZone::setupUi() {
                          "- 修复了什么问题\n"
                          "- 注意事项等")
     );
-    m_descriptionEdit->setMaximumHeight(100);
+    m_descriptionEdit->setMinimumHeight(100);
     formLayout->addRow(QString::fromUtf8("修改内容:"), m_descriptionEdit);
     
     // 新增：审核人选择（下拉框式）
@@ -83,7 +86,9 @@ void MrZone::setupUi() {
     
     // 创建带复选框的列表
     m_assigneeList = new QListWidget();
-    m_assigneeList->setWindowFlags(Qt::Popup);
+    // 使用 Tool 而不是 Popup，因为 Popup 点击外部会自动关闭，导致我们的 Toggle 逻辑失效（关了又开）
+    // FramelessWindowHint 去掉窗口边框
+    m_assigneeList->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     m_assigneeList->setFocusPolicy(Qt::NoFocus);
     m_assigneeList->setMouseTracking(true);
     
@@ -372,7 +377,7 @@ bool MrZone::eventFilter(QObject* obj, QEvent* event) {
                     // 点击了文字区域 -> 手动切换状态
                     bool checked = (item->checkState() == Qt::Checked);
                     item->setCheckState(checked ? Qt::Unchecked : Qt::Checked);
-                    return true; // 阻止默认的选择行为（避免高亮）
+                    return true;
                 }
             }
         }
@@ -380,7 +385,7 @@ bool MrZone::eventFilter(QObject* obj, QEvent* event) {
         // 2. 处理下拉框点击（Toggle）
         if (obj == m_assigneeCombo || obj == m_assigneeCombo->lineEdit()) {
             if (m_assigneeList->isVisible()) {
-                m_assigneeList->hide();
+                hideAssigneePopup();
             } else {
                 showAssigneePopup();
             }
@@ -396,7 +401,7 @@ bool MrZone::eventFilter(QObject* obj, QEvent* event) {
             bool inCombo = m_assigneeCombo->rect().contains(m_assigneeCombo->mapFromGlobal(globalPos));
             
             if (!inList && !inCombo) {
-                m_assigneeList->hide();
+                hideAssigneePopup();
             }
         }
     }
@@ -417,4 +422,32 @@ void MrZone::showAssigneePopup() {
     m_assigneeList->show();
     m_assigneeList->raise();
     m_assigneeList->activateWindow();
+    
+    setArrowState(true); // 显示上三角
+}
+
+void MrZone::hideAssigneePopup() {
+    m_assigneeList->hide();
+    setArrowState(false); // 显示下三角
+}
+
+void MrZone::setArrowState(bool isUp) {
+    // 简单的 SVG Base64 图标 (灰色 Stroke) - 添加单引号
+    QString downArrow = "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTYgOWw2IDYgNi02Ii8+PC9zdmc+')";
+    QString upArrow = "url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE4IDE1bC02LTYtNiA2Ii8+PC9zdmc+')";
+
+    QString style = QString(
+        "QComboBox::down-arrow { "
+        "   image: %1; "
+        "   width: 14px; height: 14px; "
+        "}"
+        "QComboBox::drop-down { "
+        "   border: none; "
+        "   subcontrol-origin: padding;"
+        "   subcontrol-position: top right;"
+        "   width: 20px; "
+        "}"
+    ).arg(isUp ? upArrow : downArrow);
+    
+    m_assigneeCombo->setStyleSheet(style);
 }

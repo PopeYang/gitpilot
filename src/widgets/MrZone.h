@@ -47,7 +47,10 @@ private:
     void lockTargetBranch(const QString& branch);
     void unlockTargetBranch();
     void loadProjectMembers();
-    void showAssigneePopup();  // 新增：显示弹出列表
+
+    void showAssigneePopup();
+    void hideAssigneePopup();  // 新增：统一隐藏逻辑
+    void setArrowState(bool isUp); // 新增：控制三角方向
     
     // 事件过滤器
     bool eventFilter(QObject* obj, QEvent* event) override;
