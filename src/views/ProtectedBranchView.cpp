@@ -3,7 +3,7 @@
 #include "api/GitLabApi.h"
 #include "utils/Logger.h"
 #include "widgets/BranchCreatorDialog.h"
-#include "widgets/ProgressDialog.h"
+
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -228,40 +228,58 @@ void ProtectedBranchView::connectSignals() {
 }
 
 void ProtectedBranchView::onPullClicked() {
-    int ret = QMessageBox::question(this, QString::fromUtf8("确认拉取"),
-        QString::fromUtf8("确定要从远程拉取最新代码吗？\n这将更新当前分支。"),
-        QMessageBox::Yes | QMessageBox::No);
+    QString currentBranch = m_gitService->getCurrentBranch();
+    
+    int ret = QMessageBox::question(
+        this,
+        QString::fromUtf8("确认拉取"),
+        QString::fromUtf8("确认要从远程仓库拉取 %1 分支的最新代码？").arg(currentBranch),
+        QMessageBox::Yes | QMessageBox::No
+    );
     
     if (ret != QMessageBox::Yes) {
         return;
     }
     
-    // 使用进度对话框
-    ProgressDialog* progressDlg = new ProgressDialog(
-        QString::fromUtf8("正在拉取最新代码"),
-        QString("git pull"),
-        this
-    );
+    // 显示进度对话框
+    QProgressDialog* progress = new QProgressDialog(
+        QString::fromUtf8("正在从远程仓库拉取代码..."), 
+        QString(), 0, 0, this);
+    progress->setWindowTitle(QString::fromUtf8("拉取中"));
+    progress->setMinimumWidth(255);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setCancelButton(nullptr);
+    progress->setValue(0);
+    progress->show();
     
-    bool success = false;
-    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
-        success = result;
+    // 使用FutureWatcher监听异步任务
+    QFutureWatcher<bool>* watcher = new QFutureWatcher<bool>(this);
+    
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher, progress]() {
+        bool success = watcher->result();
+        
+        progress->close();
+        progress->deleteLater();
+        watcher->deleteLater();
+        
+        if (success) {
+            m_statusLabel->setText(QString::fromUtf8("拉取成功"));
+            QMessageBox::information(this, QString::fromUtf8("拉取成功"),
+                QString::fromUtf8("✅ 代码已成功从远程仓库拉取"));
+        } else {
+            m_statusLabel->setText(QString::fromUtf8("拉取失败"));
+            QMessageBox::warning(this, QString::fromUtf8("拉取失败"),
+                QString::fromUtf8("拉取失败，请检查网络连接或是否存在冲突"));
+        }
     });
     
-    progressDlg->executeCommand("git",
-        QStringList() << "pull",
-        m_gitService->getRepoPath());
-    progressDlg->exec();
+    // 在后台线程执行Git操作
+    QFuture<bool> future = QtConcurrent::run([this]() {
+        return m_gitService->pullLatest();
+    });
     
-    if (success) {
-        m_statusLabel->setText(QString::fromUtf8("拉取成功"));
-        QMessageBox::information(this, QString::fromUtf8("成功"),
-            QString::fromUtf8("已成功拉取最新代码！"));
-    } else {
-        m_statusLabel->setText(QString::fromUtf8("拉取失败"));
-    }
-    
-    progressDlg->deleteLater();
+    watcher->setFuture(future);
 }
 
 void ProtectedBranchView::onNewBranchClicked() {
