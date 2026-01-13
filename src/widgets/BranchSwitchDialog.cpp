@@ -18,7 +18,9 @@ BranchSwitchDialog::BranchSwitchDialog(const QString& currentBranch,
     , m_databaseBranchName(databaseBranchName)
 {
     setWindowTitle(QString::fromUtf8("切换分支"));
-    setMinimumWidth(450);
+    setMinimumWidth(380);
+    setMaximumWidth(450);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
     // 修正后的调用
     setupUi();
 }
@@ -29,8 +31,8 @@ QString BranchSwitchDialog::getTargetBranch() const {
 
 void BranchSwitchDialog::setupUi() {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(15);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
+    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(15, 15, 15, 15);
     
     // 指导语
     QLabel* tipLabel = new QLabel(QString::fromUtf8("当前位于: <b>%1</b>").arg(m_currentBranch), this);
@@ -69,7 +71,7 @@ void BranchSwitchDialog::setupUi() {
     for (const QString& branch : coreBranches) {
         QPushButton* btn = new QPushButton(branch, this);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setMinimumHeight(45);
+        btn->setMinimumHeight(36);
         
         // 样式：区分当前分支和目标分支
         if (branch == m_currentBranch) {
@@ -131,7 +133,7 @@ void BranchSwitchDialog::setupUi() {
     m_otherBranchCombo = new QComboBox(this);
     m_otherBranchCombo->setEditable(true); // 允许搜索
     m_otherBranchCombo->setPlaceholderText(QString::fromUtf8("🔍 搜索或选择分支..."));
-    m_otherBranchCombo->setMinimumHeight(35);
+    m_otherBranchCombo->setMinimumHeight(30);
     
     // 过滤掉已经在上面的核心分支
     QSet<QString> coreSet(coreBranches.begin(), coreBranches.end());
@@ -158,7 +160,7 @@ void BranchSwitchDialog::setupUi() {
 
     QPushButton* switchBtn = new QPushButton(QString::fromUtf8("切换"), this);
     switchBtn->setCursor(Qt::PointingHandCursor);
-    switchBtn->setMinimumHeight(35);
+    switchBtn->setMinimumHeight(30);
     switchBtn->setStyleSheet(
         "QPushButton {"
         "   background-color: #4CAF50;"
@@ -195,13 +197,11 @@ void BranchSwitchDialog::setupUi() {
     
     mainLayout->addWidget(otherGroup);
     
-    mainLayout->addStretch();
-    
     // 底部取消
     QHBoxLayout* bottomLayout = new QHBoxLayout();
     bottomLayout->addStretch();
     QPushButton* cancelBtn = new QPushButton(QString::fromUtf8("取消"), this);
-    cancelBtn->setMinimumHeight(30);
+    cancelBtn->setMinimumHeight(28);
     connect(cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
     bottomLayout->addWidget(cancelBtn);
     
