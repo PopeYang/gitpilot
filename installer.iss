@@ -34,6 +34,7 @@ SolidCompression=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 WizardStyle=modern
+LicenseFile=LICENSE
 
 ; Minimum Windows version (Windows 10 1809)
 MinVersion=10.0.17763
@@ -46,6 +47,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "deploy\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Documentation
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

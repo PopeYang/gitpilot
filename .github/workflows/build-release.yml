@@ -79,6 +79,7 @@ jobs:
       - name: Copy Documentation
         run: |
           Copy-Item README.md deploy\ -ErrorAction SilentlyContinue
+          Copy-Item LICENSE deploy\ -ErrorAction SilentlyContinue
       
       # 9. 创建绿色版 ZIP
       - name: Create Portable ZIP
