@@ -414,11 +414,20 @@ void MrZone::showAssigneePopup() {
         return;
     }
     
+    // 计算动态高度 (最多显示8行)
+    int rowHeight = m_assigneeList->sizeHintForRow(0);
+    if (rowHeight <= 0) rowHeight = 30; // 默认高度
+    
+    int totalItems = m_assigneeList->count();
+    int visibleItems = (totalItems > 8) ? 8 : totalItems;
+    // +4px 用于边框/Padding余量
+    int listHeight = visibleItems * rowHeight + 4; 
+    
     // 定位到下拉框下方
     QPoint pos = m_assigneeCombo->mapToGlobal(QPoint(0, m_assigneeCombo->height()));
     m_assigneeList->move(pos);
     m_assigneeList->setFixedWidth(m_assigneeCombo->width());
-    m_assigneeList->setFixedHeight(200);
+    m_assigneeList->setFixedHeight(listHeight);
     m_assigneeList->show();
     m_assigneeList->raise();
     m_assigneeList->activateWindow();
