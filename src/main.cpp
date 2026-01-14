@@ -2,7 +2,6 @@
 #include <QMessageBox>
 #include "config/ConfigManager.h"
 #include "config/FontConfig.h"
-#include "ui/FirstRunWizard.h"
 #include "ui/MainWindow.h"
 
 int main(int argc, char *argv[]) {
@@ -20,39 +19,35 @@ int main(int argc, char *argv[]) {
     // 设置应用程序样式（可选）
     QApplication::setStyle("Fusion");
     
-    // 检查配置是否完整
+    // 初始化配置管理器
     ConfigManager& config = ConfigManager::instance();
     
-    // 如果是首次运行或配置不完整，显示向导
-    while (config.isFirstRun() || 
-           config.getGitLabToken().isEmpty() || 
-           config.getRepoPath().isEmpty()) {
-        
-        FirstRunWizard wizard;
-        wizard.setWindowTitle("配置向导 - GitPilot客户端");
-        
-        if (wizard.exec() == QDialog::Rejected) {
-            // 用户取消配置，询问是否退出
-            int ret = QMessageBox::question(nullptr, "退出确认", 
-                "配置尚未完成，是否退出程序？\n\n"
-                "点击'Yes'退出，点击'No'重新配置。",
-                QMessageBox::Yes | QMessageBox::No);
-            
-            if (ret == QMessageBox::Yes) {
-                return 0;
-            }
-            // 否则继续循环，重新显示向导
-        } else {
-            // 配置完成，标记首次运行已完成
-            config.setFirstRunCompleted();
-            break;
-        }
+    // 直接加载主窗口，允许在未配置的情况下启动
+    MainWindow mainWindow;
+    
+    // 如果有项目名称，在标题中显示，否则显示默认标题
+    QString projectName = config.getCurrentProjectName();
+    if (!projectName.isEmpty()) {
+        mainWindow.setWindowTitle("GitPilot 客户端 - " + projectName);
+    } else {
+        mainWindow.setWindowTitle("GitPilot 客户端");
     }
     
-    // 加载主窗口
-    MainWindow mainWindow;
-    mainWindow.setWindowTitle("Git Pilot 客户端 - " + config.getCurrentProjectName());
     mainWindow.show();
+    
+    // 如果是首次运行，提示用户进行配置（非强制）
+    if (config.isFirstRun()) {
+        QMessageBox::information(&mainWindow, 
+            QString::fromUtf8("欢迎使用 GitPilot"), 
+            QString::fromUtf8("欢迎使用 GitPilot！\n\n"
+                             "请通过菜单栏 文件 > 设置 来配置：\n"
+                             "• GitLab 服务器地址和 Personal Access Token\n"
+                             "• Git 仓库路径\n\n"
+                             "配置完成后即可开始使用。"));
+        
+        // 标记首次运行已完成
+        config.setFirstRunCompleted();
+    }
     
     return app.exec();
 }

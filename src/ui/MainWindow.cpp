@@ -144,11 +144,15 @@ void MainWindow::connectServices() {
 
 void MainWindow::loadCurrentBranch() {
     if (!m_gitService->isValidRepo()) {
-        QMessageBox::warning(this, "仓库无效",
-            "当前目录不是有效的Git仓库！\n"
-            "请在设置中配置正确的仓库路径。");
+        // 仓库未配置或无效时，显示友好提示而不是警告弹窗
+        m_operationLabel->setText(QString::fromUtf8("请在菜单 [文件 > 设置] 中配置仓库路径"));
+        m_branchButton->setText(QString::fromUtf8("⚙️ 未配置"));
+        m_branchButton->setEnabled(false);
         return;
     }
+    
+    // 启用分支按钮
+    m_branchButton->setEnabled(true);
     
     QString branch = m_gitService->getCurrentBranch();
     if (branch != m_currentBranch) {
