@@ -282,33 +282,35 @@ void SettingsDialog::onCloneRepository() {
         }
     }
     
-    // 使用进度对话框执行clone
-    ProgressDialog* progressDlg = new ProgressDialog(
-        QString::fromUtf8("正在Clone仓库"),
-        QString("git clone %1 %2").arg(url, targetPath),
-        this
-    );
+    // 取消曾经的阻塞式ProgressDialog
+    // 改为使用GitService的异步Clone
+    m_cloneButton->setEnabled(false);
+    m_cloneButton->setText(QString::fromUtf8("正在Clone..."));
     
-    bool success = false;
-    connect(progressDlg, &ProgressDialog::commandFinished, [&success](bool result) {
-        success = result;
+    GitService* gitService = new GitService(this);
+    
+    connect(gitService, &GitService::cloneFinished, this, [this, gitService, targetPath](bool success, const QString& errorMsg) {
+        m_cloneButton->setEnabled(true);
+        m_cloneButton->setText(QString::fromUtf8("📥 Clone到本地"));
+        
+        if (success) {
+            // 自动填充仓库路径
+            m_repoPathEdit->setText(targetPath);
+            
+            QMessageBox::information(this, QString::fromUtf8("Clone成功"),
+                QString::fromUtf8("仓库已成功Clone到：\n%1\n\n已自动填充到仓库路径").arg(targetPath));
+            
+            // 自动提取项目信息
+            onExtractFromGit();
+        } else {
+            QMessageBox::critical(this, QString::fromUtf8("Clone失败"),
+                QString::fromUtf8("Clone失败:\n%1").arg(errorMsg));
+        }
+        
+        gitService->deleteLater();
     });
     
-    progressDlg->executeCommand("git", QStringList() << "clone" << url << targetPath, parentDir);
-    progressDlg->exec();
-    
-    if (success) {
-        // 自动填充仓库路径
-        m_repoPathEdit->setText(targetPath);
-        
-        QMessageBox::information(this, QString::fromUtf8("Clone成功"),
-            QString::fromUtf8("仓库已成功Clone到：\n%1\n\n"
-                             "已自动填充到仓库路径").arg(targetPath));
-        
-        // 自动提取项目信息
-        onExtractFromGit();
-    }
-    progressDlg->deleteLater();
+    gitService->cloneRepositoryAsync(url, targetPath);
 }
 
 void SettingsDialog::onBrowseRepoPath() {
