@@ -21,7 +21,7 @@ GitLabApi::~GitLabApi() {
 void GitLabApi::setBaseUrl(const QString& url) {
     m_baseUrl = url;
     // 移除末尾的斜杠
-    if (m_baseUrl.endsWith('/')) {
+    while (m_baseUrl.endsWith('/')) {
         m_baseUrl.chop(1);
     }
 }
