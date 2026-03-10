@@ -16,12 +16,15 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QInputDialog>
+#include <QDir>
+#include <QFileInfo>
+#include <QTimer>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_gitService(new GitService(this))
     , m_gitLabApi(new GitLabApi(this))
-    , m_refreshTimer(new QTimer(this))
+    , m_branchWatcher(new QFileSystemWatcher(this))
 {
     setWindowTitle("Easy Git");
     resize(600, 700);
@@ -40,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 延迟启动分支监控，避免阻塞窗口显示
     QTimer::singleShot(100, this, [this]() {
         loadCurrentBranch();
-        m_refreshTimer->start(5000); // 每5秒检查一次分支变化
+        setupBranchWatcher();
     });
     
     LOG_INFO("主窗口初始化完成");
@@ -138,8 +141,44 @@ void MainWindow::connectServices() {
         m_operationLabel->setText(QString::fromUtf8("就绪"));
     });
     
-    // 定时刷新
-    connect(m_refreshTimer, &QTimer::timeout, this, &MainWindow::onBranchChanged);
+    // 文件监控器事件
+    connect(m_branchWatcher, &QFileSystemWatcher::fileChanged, this, [this](const QString& path) {
+        LOG_INFO(QString("监测到分支文件变化: %1").arg(path));
+        // Git在某些操作（如 checkout）时可能会删除并重新创建 HEAD 文件，导致 watcher 失效
+        // 因此需要重新将其加入监控
+        if (!m_branchWatcher->files().contains(path)) {
+            QFileInfo fileInfo(path);
+            if (fileInfo.exists()) {
+                m_branchWatcher->addPath(path);
+            }
+        }
+        onBranchChanged();
+    });
+}
+
+// 提取的新方法，用于随时重新配置 watcher
+void MainWindow::setupBranchWatcher() {
+    // 先清空旧的监控
+    QStringList oldFiles = m_branchWatcher->files();
+    if (!oldFiles.isEmpty()) {
+        m_branchWatcher->removePaths(oldFiles);
+    }
+    
+    ConfigManager& config = ConfigManager::instance();
+    QString repoPath = config.getRepoPath();
+    if (repoPath.isEmpty()) return;
+    
+    // 监控 .git/HEAD 文件
+    QDir repoDir(repoPath);
+    QString headFilePath = repoDir.filePath(".git/HEAD");
+    
+    QFileInfo headInfo(headFilePath);
+    if (headInfo.exists()) {
+        m_branchWatcher->addPath(headFilePath);
+        LOG_INFO(QString("已启动分支监控: %1").arg(headFilePath));
+    } else {
+        LOG_WARNING(QString("找不到 HEAD 文件，无法建立监控: %1").arg(headFilePath));
+    }
 }
 
 void MainWindow::loadCurrentBranch() {
@@ -215,6 +254,7 @@ void MainWindow::onSettingsRequested() {
         m_gitLabApi->setProjectId(config.getCurrentProjectId());
         
         loadCurrentBranch();
+        setupBranchWatcher(); // 更新repoPath后需要重新设置文件监控
     }
 }
 

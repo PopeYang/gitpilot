@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QDateTime> // For caching timestamps
 #include "ApiModels.h"
 
 /**
@@ -82,10 +83,15 @@ private:
     QString m_apiToken;
     QString m_projectId;
     
+    
     // HTTP请求方法
     void sendGetRequest(const QString& endpoint, const QString& callbackId);
     void sendPostRequest(const QString& endpoint, const QJsonObject& data, const QString& callbackId);
     void sendPutRequest(const QString& endpoint, const QJsonObject& data, const QString& callbackId);
+    
+    // 缓存数据
+    QList<ProjectMember> m_cachedMembers;
+    QDateTime m_lastMembersFetchTime;
     
     // 响应处理
     void handleUserInfoResponse(const QJsonObject& json);

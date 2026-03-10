@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QUrlQuery>
 #include <QDateTime>
+#include <QTimer>
 #include <QMessageBox>
 
 GitLabApi::GitLabApi(QObject* parent)
@@ -61,6 +62,16 @@ void GitLabApi::listProjectMembers() {
     if (m_projectId.isEmpty()) {
         LOG_ERROR("项目ID未设置，无法获取成员");
         emit apiError("listProjectMembers", QString::fromUtf8("项目ID未设置"));
+        return;
+    }
+    
+    // Check cache (valid for 1 hour = 3600 seconds)
+    if (m_lastMembersFetchTime.isValid() && m_lastMembersFetchTime.secsTo(QDateTime::currentDateTime()) < 3600) {
+        LOG_INFO("命中缓存，直接返回项目成员列表");
+        // Use singleShot to mimic async behavior and avoid breaking calling code
+        QTimer::singleShot(0, this, [this]() {
+            emit projectMembersReceived(m_cachedMembers);
+        });
         return;
     }
     
@@ -463,6 +474,11 @@ void GitLabApi::handleProjectMembersResponse(const QJsonArray& jsonArray) {
     for (const QJsonValue& val : jsonArray) {
         members.append(parseProjectMember(val.toObject()));
     }
+    
+    // Update cache
+    m_cachedMembers = members;
+    m_lastMembersFetchTime = QDateTime::currentDateTime();
+    
     emit projectMembersReceived(members);
 }
 

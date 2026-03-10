@@ -5,7 +5,7 @@
 #include <QStackedWidget>
 #include <QLabel>
 #include <QPushButton>
-#include <QTimer>
+#include <QFileSystemWatcher>
 #include "service/GitService.h"
 #include "api/GitLabApi.h"
 
@@ -38,6 +38,7 @@ private:
     void connectServices();
     void loadCurrentBranch();
     void switchToAppropriateView(const QString& branchName);
+    void setupBranchWatcher();
     
     // 核心服务
     GitService* m_gitService;
@@ -54,8 +55,8 @@ private:
     FeatureBranchView* m_featureBranchView;
     DatabaseBranchView* m_databaseBranchView;
     
-    // 定时器（监控分支变化）
-    QTimer* m_refreshTimer;
+    // 监控分支变化
+    QFileSystemWatcher* m_branchWatcher;
     
     QString m_currentBranch;
 };
