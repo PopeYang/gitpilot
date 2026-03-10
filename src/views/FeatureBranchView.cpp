@@ -24,6 +24,7 @@ FeatureBranchView::FeatureBranchView(GitService* gitService, GitLabApi* gitLabAp
     : QWidget(parent)
     , m_gitService(gitService)
     , m_gitLabApi(gitLabApi)
+    , m_fileStatusWatcher(new QFutureWatcher<QList<FileStatus>>(this))
 {
     setupUi();
     connectSignals();
@@ -193,7 +194,11 @@ void FeatureBranchView::connectSignals() {
     connect(m_pullButton, &QPushButton::clicked, this, &FeatureBranchView::onPullClicked);
     connect(m_pushButton, &QPushButton::clicked, this, &FeatureBranchView::onPushClicked);
     connect(m_mrZone, &MrZone::conflictCheckRequested, this, &FeatureBranchView::onConflictCheckRequested);
-    connect(m_mrZone, &MrZone::mrSubmitted, this, &FeatureBranchView::onMrSubmitted);
+    connect(m_mrZone, &MrZone::mrSubmitted,
+            this, &FeatureBranchView::onMrSubmitted);
+            
+    connect(m_fileStatusWatcher, &QFutureWatcher<QList<FileStatus>>::finished,
+            this, &FeatureBranchView::onFileStatusReady);
 }
 
 void FeatureBranchView::showEvent(QShowEvent* event) {
@@ -209,9 +214,26 @@ void FeatureBranchView::refreshView() {
 }
 
 void FeatureBranchView::updateFileList() {
+    // 避免重复扫描
+    if (m_fileStatusWatcher->isRunning()) {
+        return;
+    }
+    
+    m_filesListWidget->clear();
+    QListWidgetItem* loadingItem = new QListWidgetItem(QString::fromUtf8("⏳ 正在扫描文件变动..."));
+    loadingItem->setForeground(QBrush(Qt::gray));
+    m_filesListWidget->addItem(loadingItem);
+    
+    QFuture<QList<FileStatus>> future = QtConcurrent::run([this]() {
+        return m_gitService->getFileStatus();
+    });
+    m_fileStatusWatcher->setFuture(future);
+}
+
+void FeatureBranchView::onFileStatusReady() {
     m_filesListWidget->clear();
     
-    QList<FileStatus> fileStatuses = m_gitService->getFileStatus();
+    QList<FileStatus> fileStatuses = m_fileStatusWatcher->result();
     
     if (fileStatuses.isEmpty()) {
         m_filesListWidget->addItem(QString::fromUtf8("✓ 没有待提交的修改"));

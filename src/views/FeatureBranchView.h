@@ -3,8 +3,12 @@
 
 #include <QWidget>
 #include <QShowEvent>
+#include <QFutureWatcher>
+#include <QList>
 
-class GitService;
+#include <QList>
+#include "service/GitService.h"
+
 class GitLabApi;
 class MrZone;
 class QListWidget;
@@ -33,6 +37,7 @@ private slots:
     void onPushClicked();
     void onConflictCheckRequested(const QString& targetBranch);
     void onMrSubmitted(const QString& targetBranch, const QString& title, const QString& description);
+    void onFileStatusReady();
     
 private:
     void setupUi();
@@ -57,6 +62,8 @@ private:
     QPushButton* m_pullButton;
     QPushButton* m_pushButton;
     MrZone* m_mrZone;
+    
+    QFutureWatcher<QList<FileStatus>>* m_fileStatusWatcher;
 
     QGroupBox* m_welcomeGroup;
     QLabel* m_welcomeLabel;

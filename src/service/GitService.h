@@ -15,6 +15,9 @@ struct FileStatus {
     QString displayText;
 };
 
+Q_DECLARE_METATYPE(FileStatus)
+Q_DECLARE_METATYPE(QList<FileStatus>)
+
 /**
  * @brief Cherry-pick冲突检测结果
  */
