@@ -432,6 +432,35 @@ bool GitService::cloneRepository(const QString& url, const QString& targetPath, 
     return true;
 }
 
+void GitService::cloneRepositoryAsync(const QString& url, const QString& targetPath) {
+    QProcess* process = new QProcess(this);
+    process->setWorkingDirectory(QDir::currentPath());
+    
+    QStringList args = {"clone", url, targetPath};
+    
+    connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (exitStatus == QProcess::CrashExit) {
+            emit cloneFinished(false, QString::fromUtf8("Git进程崩溃"));
+        } else if (exitCode != 0) {
+            emit cloneFinished(false, QString::fromUtf8(process->readAllStandardError()).trimmed());
+        } else {
+            emit cloneFinished(true, QString());
+        }
+        process->deleteLater();
+    });
+    
+    connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) {
+            emit cloneFinished(false, QString::fromUtf8("无法启动Git命令"));
+            process->deleteLater();
+        }
+    });
+
+    emit operationStarted(args.join(' '));
+    process->start("git", args);
+}
+
 // ========== 私有方法 ==========
 
 bool GitService::executeGitCommand(const QStringList& args, QString& output, QString& error) {
@@ -468,7 +497,10 @@ bool GitService::executeGitCommand(const QStringList& args, QString& output, QSt
 
 QString GitService::executeGitCommandSimple(const QStringList& args) {
     QString output, error;
-    executeGitCommand(args, output, error);
+    bool success = executeGitCommand(args, output, error);
+    if (!success) {
+        LOG_WARNING(QString("Git command '%1' failed: %2").arg(args.join(" "), error));
+    }
     return output;
 }
 

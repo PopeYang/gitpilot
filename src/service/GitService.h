@@ -77,11 +77,17 @@ public:
     // 仓库管理（静态方法）
     static bool cloneRepository(const QString& url, const QString& targetPath, QString& error);
     
+    // 异步仓库管理
+    void cloneRepositoryAsync(const QString& url, const QString& targetPath);
+    
 signals:
     void operationStarted(const QString& operation);
     void operationFinished(const QString& operation, bool success);
     void outputReceived(const QString& output);
     void errorReceived(const QString& error);
+    
+    // 异步操作完成信号
+    void cloneFinished(bool success, const QString& errorMsg);
     
 private:
     QString m_repoPath;
